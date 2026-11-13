@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ system splash: dark forest background instead of default white. -->
+    <style name="Theme.YogaSenseAI" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF0A1410</item>
+        <item name="android:windowSplashScreenBackground">#FF0A1410</item>
+    </style>
+</resources>
