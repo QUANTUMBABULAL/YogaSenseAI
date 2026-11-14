@@ -8,7 +8,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -59,8 +60,14 @@ class OnboardingUiTest {
 
         compose.onNodeWithText("How tall are you?").assertIsDisplayed()
         compose.onNodeWithText("Continue").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Height in cm").performTextInput("170")
-        compose.onNodeWithContentDescription("Height in cm").assertIsDisplayed() // not hidden by the keyboard
+        compose.onNodeWithText("Slide the ruler to choose").assertIsDisplayed()  // untouched: nothing chosen
+        compose.onNodeWithContentDescription("Height ruler").performSemanticsAction(SemanticsActions.SetProgress) { it(169f) }
+        compose.onNodeWithContentDescription("Increase").performClick()        // 169 → 170 cm
+        compose.onNodeWithText("≈ 5′ 7″").assertIsDisplayed()                   // live conversion
+        compose.onNodeWithContentDescription("Unit FT / IN").performClick()
+        compose.onNodeWithText("5′ 7″").assertIsDisplayed()
+        compose.onNodeWithText("≈ 170 cm").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Unit CM").performClick()
         compose.onNodeWithText("Continue").assertIsEnabled().performClick()
 
         compose.onNodeWithText("What's your current weight?").assertIsDisplayed()
@@ -97,6 +104,7 @@ class OnboardingUiTest {
         val stored = runBlocking { RoomPersonalisationRepository(db, userId).observe().first() }
         assertEquals(OnboardingStatus.COMPLETED, stored.p.status)
         assertEquals(170f, stored.p.heightCm)
+        assertEquals(null, stored.p.weightKg)                                    // skipped stays empty
         assertEquals(ExperienceLevel.INTERMEDIATE, stored.experienceLevel)
         assertEquals(10, stored.preferredMinutes)
         assertEquals(PracticeFrequency.DAILY, stored.p.weeklyFrequency)

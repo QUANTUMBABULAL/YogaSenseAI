@@ -102,6 +102,19 @@ object BodyMetrics {
 
     fun roundTenth(v: Float) = (v * 10f).roundToInt() / 10f
 
+    /** Range check for a canonical height from the ruler (null = not chosen). Never saves out-of-range values. */
+    fun checkHeightCm(cm: Float?): Measurement = when {
+        cm == null -> Measurement.Empty
+        cm < MIN_CM - 0.001f || cm > MAX_CM + 0.001f -> Measurement.Invalid("Choose a height between ${MIN_CM.toInt()} and ${MAX_CM.toInt()} cm")
+        else -> Measurement.Valid(cm)
+    }
+
+    fun checkWeightKg(kg: Float?): Measurement = when {
+        kg == null -> Measurement.Empty
+        kg < MIN_KG - 0.001f || kg > MAX_KG + 0.001f -> Measurement.Invalid("Choose a weight between ${MIN_KG.toInt()} and ${MAX_KG.toInt()} kg")
+        else -> Measurement.Valid(kg)
+    }
+
     fun heightCm(raw: String): Measurement {
         if (raw.isBlank()) return Measurement.Empty
         val v = parse(raw) ?: return Measurement.Invalid("Enter a number, e.g. 165")

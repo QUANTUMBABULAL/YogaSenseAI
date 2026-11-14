@@ -65,8 +65,8 @@ class PersonalisationRoomTest {
         val repo = RoomPersonalisationRepository(db, p.userId)
         val c = controller(repo, view(repo), OnboardingMode.Required)
         c.next()                                                        // welcome
-        c.setHeightCmText("168.4"); c.next()
-        c.setWeightUnit(WeightUnit.LB); c.setWeightText("143"); c.next()
+        c.setHeightIndex(168); c.next()
+        c.setWeightUnit(WeightUnit.LB); c.setWeightIndex(143); c.next()
         c.setExperience(ExperienceLevel.INTERMEDIATE); c.next()
         c.toggleArea(BodyArea.LOWER_BACK); c.toggleArea(BodyArea.HIPS); c.setIntent(BodyArea.HIPS, BodyAreaIntent.MOBILITY); c.next()
         c.toggleGoal(WellnessGoal.BALANCE); c.toggleGoal(WellnessGoal.SLEEP); c.next()
@@ -80,7 +80,7 @@ class PersonalisationRoomTest {
         val v = view(repo)
         assertFalse(v.mustOnboard)
         assertEquals(OnboardingStatus.COMPLETED, v.p.status)
-        assertEquals(168.4f, v.p.heightCm)
+        assertEquals(168f, v.p.heightCm)
         assertEquals(64.9f, v.p.weightKg!!, 0.05f); assertEquals(WeightUnit.LB, v.p.weightUnit)
         assertEquals(mapOf(BodyArea.LOWER_BACK to null, BodyArea.HIPS to BodyAreaIntent.MOBILITY), v.p.bodyAreas)
         assertEquals(setOf(WellnessGoal.BALANCE, WellnessGoal.SLEEP), v.p.goals)
@@ -94,13 +94,13 @@ class PersonalisationRoomTest {
         val p = profiles.createProfile("A", ExperienceLevel.BEGINNER)
         val repo = RoomPersonalisationRepository(db, p.userId)
         val c = controller(repo, view(repo), OnboardingMode.Required)
-        c.next(); c.setHeightCmText("170"); c.next()
+        c.next(); c.setHeightIndex(170); c.next()
         c.skip()                                                        // weight skipped
         assertEquals(OnboardingStep.EXPERIENCE, c.state.value.step)
         // "App killed" here. A new controller resumes at the stored step with the stored answers.
         val resumed = controller(repo, view(repo), OnboardingMode.Required)
         assertEquals(OnboardingStep.EXPERIENCE, resumed.state.value.step)
-        assertEquals("170", resumed.state.value.heightCmText)
+        assertEquals(170, resumed.state.value.heightIndex)
         assertNull(view(repo).p.weightKg)
         assertNull("new profiles choose experience explicitly", resumed.state.value.answers.experience)
         // Skipping a later step never clears an earlier answer.

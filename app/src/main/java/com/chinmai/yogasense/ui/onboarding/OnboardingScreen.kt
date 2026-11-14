@@ -93,6 +93,7 @@ import com.chinmai.yogasense.profile.BodyAreaIntent
 import com.chinmai.yogasense.profile.BodyMetrics
 import com.chinmai.yogasense.profile.HeightUnit
 import com.chinmai.yogasense.profile.Measurement
+import com.chinmai.yogasense.profile.MeasurementScales
 import com.chinmai.yogasense.profile.OnboardingAnswers
 import com.chinmai.yogasense.profile.OnboardingRules
 import com.chinmai.yogasense.profile.OnboardingStep
@@ -180,7 +181,7 @@ fun OnboardingScreen(vm: OnboardingViewModel, profileName: String, onExit: () ->
 // ---- Shared chrome ------------------------------------------------------------------------------
 
 private val questionCopy = mapOf(
-    OnboardingStep.HEIGHT to ("How tall are you?" to "This helps us frame your practice. Optional — you can skip it."),
+    OnboardingStep.HEIGHT to ("How tall are you?" to "Slide the ruler. Optional — you can skip it."),
     OnboardingStep.WEIGHT to ("What's your current weight?" to "Used only to personalise your experience on this phone. Optional."),
     OnboardingStep.EXPERIENCE to ("How familiar are you with yoga?" to "We'll suggest poses that suit where you are today."),
     OnboardingStep.BODY_AREAS to ("Which areas would you like us to pay extra attention to?" to "Tap the figure or choose below. Pick as many as you like."),
@@ -401,78 +402,44 @@ private fun DoneStep(a: OnboardingAnswers, profileName: String, saving: Boolean,
 
 // ---- Height & weight ----------------------------------------------------------------------------
 
-@Composable
-private fun BigNumberField(value: String, onValue: (String) -> Unit, unit: String, placeholder: String, label: String, modifier: Modifier = Modifier, focus: FocusRequester? = null, imeAction: ImeAction = ImeAction.Done, onIme: () -> Unit = {}) {
-    Row(modifier, verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
-        BasicTextField(
-            value = value,
-            onValueChange = { t -> onValue(t.filter { it.isDigit() || it == '.' || it == ',' }) },
-            singleLine = true,
-            textStyle = TextStyle(fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, color = Ink, textAlign = TextAlign.End, letterSpacing = (-1.5).sp),
-            cursorBrush = SolidColor(Coral),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = imeAction),
-            keyboardActions = KeyboardActions(onAny = { onIme() }),
-            modifier = Modifier.widthIn(min = 72.dp, max = 220.dp).then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
-                .semantics { contentDescription = "$label in $unit" },
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterEnd) {
-                    if (value.isEmpty()) Text(placeholder, style = TextStyle(fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, color = InkSubtle.copy(alpha = 0.45f), letterSpacing = (-1.5).sp))
-                    inner()
-                }
-            },
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(unit, style = MaterialTheme.typography.headlineSmall, color = InkMuted, modifier = Modifier.padding(bottom = 14.dp))
-    }
-}
-
-@Composable
-private fun MeasurementHint(m: Measurement, okText: String?) {
-    val (text, color) = when (m) {
-        is Measurement.Invalid -> m.message to ErrorRed
-        is Measurement.Valid -> (okText ?: "") to InkMuted
-        Measurement.Empty -> "" to InkMuted
-    }
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = color, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().heightIn(min = 20.dp))
-}
-
+/** Height: CM or FT / IN on one continuous ruler (inch increments shown as feet and inches). No keyboard. */
 @Composable
 private fun ColumnScope.HeightStep(s: OnboardingUiState, c: OnboardingController) {
-    val focus = remember { FocusRequester() }
-    val inchFocus = remember { FocusRequester() }
-    val fm = LocalFocusManager.current
+    val u = s.answers.heightUnit
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        SegmentedToggle(listOf("cm", "ft · in"), if (s.answers.heightUnit == HeightUnit.CM) 0 else 1) { c.setHeightUnit(if (it == 0) HeightUnit.CM else HeightUnit.FT_IN) }
+        MeasurementUnitSelector(listOf("CM", "FT / IN"), if (u == HeightUnit.CM) 0 else 1, { c.setHeightUnit(if (it == 0) HeightUnit.CM else HeightUnit.FT_IN) })
     }
     Spacer(Modifier.height(Spacing.xl))
-    if (s.answers.heightUnit == HeightUnit.CM) {
-        BigNumberField(s.heightCmText, c::setHeightCmText, "cm", "170", "Height", Modifier.fillMaxWidth(), focus, onIme = { fm.clearFocus() })
-    } else {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            BigNumberField(s.feetText, { c.setFeetText(it.filter(Char::isDigit)) }, "ft", "5", "Feet", focus = focus, imeAction = ImeAction.Next, onIme = { inchFocus.requestFocus() })
-            Spacer(Modifier.width(Spacing.md))
-            BigNumberField(s.inchesText, c::setInchesText, "in", "7", "Inches", focus = inchFocus, onIme = { fm.clearFocus() })
-        }
-    }
-    Spacer(Modifier.height(Spacing.sm))
-    MeasurementHint(s.height, okText = (s.height as? Measurement.Valid)?.let { if (s.answers.heightUnit == HeightUnit.FT_IN) "≈ ${BodyMetrics.heightText(it.value)} cm" else null })
-    LaunchedEffect(s.answers.heightUnit) { runCatching { focus.requestFocus() } }
+    MeasurementSelector(
+        scale = s.heightScale,
+        index = s.heightIndex,
+        onIndexChange = c::setHeightIndex,
+        converted = s.answers.heightCm?.let { MeasurementScales.heightConverted(it, u) },
+        description = "Height ruler",
+        tickSpacing = if (u == HeightUnit.CM) 10.dp else 16.dp,
+    )
+    (s.height as? Measurement.Invalid)?.let { Text(it.message, color = ErrorRed, style = MaterialTheme.typography.bodyMedium) }
 }
 
+/** Weight: KG (0.1 kg increments) or LBS (1 lb). No keyboard. */
 @Composable
 private fun ColumnScope.WeightStep(s: OnboardingUiState, c: OnboardingController) {
-    val focus = remember { FocusRequester() }
-    val fm = LocalFocusManager.current
+    val u = s.answers.weightUnit
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        SegmentedToggle(listOf("kg", "lb"), if (s.answers.weightUnit == WeightUnit.KG) 0 else 1) { c.setWeightUnit(if (it == 0) WeightUnit.KG else WeightUnit.LB) }
+        MeasurementUnitSelector(listOf("KG", "LBS"), if (u == WeightUnit.KG) 0 else 1, { c.setWeightUnit(if (it == 0) WeightUnit.KG else WeightUnit.LB) })
     }
     Spacer(Modifier.height(Spacing.xl))
-    BigNumberField(s.weightText, c::setWeightText, if (s.answers.weightUnit == WeightUnit.KG) "kg" else "lb", if (s.answers.weightUnit == WeightUnit.KG) "65" else "143", "Weight", Modifier.fillMaxWidth(), focus, onIme = { fm.clearFocus() })
-    Spacer(Modifier.height(Spacing.sm))
-    MeasurementHint(s.weight, okText = null)
+    MeasurementSelector(
+        scale = s.weightScale,
+        index = s.weightIndex,
+        onIndexChange = c::setWeightIndex,
+        converted = s.answers.weightKg?.let { MeasurementScales.weightConverted(it, u) },
+        description = "Weight ruler",
+        tickSpacing = if (u == WeightUnit.KG) 9.dp else 10.dp,
+    )
+    (s.weight as? Measurement.Invalid)?.let { Text(it.message, color = ErrorRed, style = MaterialTheme.typography.bodyMedium) }
     Spacer(Modifier.height(Spacing.lg))
     Text("We don't calculate anything from your weight or judge it.", style = MaterialTheme.typography.bodySmall, color = InkMuted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
 
 // ---- Experience ---------------------------------------------------------------------------------

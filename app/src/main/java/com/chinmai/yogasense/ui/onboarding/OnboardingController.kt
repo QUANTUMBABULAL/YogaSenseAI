@@ -9,6 +9,8 @@ import com.chinmai.yogasense.profile.BodyAreaIntent
 import com.chinmai.yogasense.profile.BodyMetrics
 import com.chinmai.yogasense.profile.HeightUnit
 import com.chinmai.yogasense.profile.Measurement
+import com.chinmai.yogasense.profile.MeasurementScales
+import com.chinmai.yogasense.profile.RulerScale
 import com.chinmai.yogasense.profile.OnboardingAnswers
 import com.chinmai.yogasense.profile.OnboardingRules
 import com.chinmai.yogasense.profile.OnboardingStatus
@@ -35,11 +37,8 @@ sealed interface OnboardingMode {
 
 data class OnboardingUiState(
     val step: OnboardingStep,
+    /** Canonical height (cm) / weight (kg) live in [answers]; null = not chosen (rulers show a muted default). */
     val answers: OnboardingAnswers,
-    val heightCmText: String = "",
-    val feetText: String = "",
-    val inchesText: String = "",
-    val weightText: String = "",
     /** +1 forward, -1 back (for the transition direction). */
     val direction: Int = 1,
     val saving: Boolean = false,
@@ -47,8 +46,13 @@ data class OnboardingUiState(
     /** Set when the flow should close (finished, left, or edit saved). */
     val finished: Boolean = false,
 ) {
-    val height: Measurement get() = if (answers.heightUnit == HeightUnit.CM) BodyMetrics.heightCm(heightCmText) else BodyMetrics.heightFtIn(feetText, inchesText)
-    val weight: Measurement get() = BodyMetrics.weightKg(weightText, answers.weightUnit)
+    val height: Measurement get() = BodyMetrics.checkHeightCm(answers.heightCm)
+    val weight: Measurement get() = BodyMetrics.checkWeightKg(answers.weightKg)
+    val heightScale: RulerScale get() = MeasurementScales.height(answers.heightUnit)
+    val weightScale: RulerScale get() = MeasurementScales.weight(answers.weightUnit)
+    /** Ruler position for the current unit, or null if no height has been chosen. */
+    val heightIndex: Int? get() = answers.heightCm?.let { heightScale.fromCanonical(it) }
+    val weightIndex: Int? get() = answers.weightKg?.let { weightScale.fromCanonical(it) }
     val canContinue: Boolean get() = !saving && OnboardingRules.canContinue(step, answers, height, weight)
 }
 
@@ -76,14 +80,7 @@ class OnboardingController(
                 else OnboardingStep.WELCOME
             }
         }
-        val (ft, inch) = BodyMetrics.feetInches(answers.heightCm)
-        _state = MutableStateFlow(
-            OnboardingUiState(
-                step = start, answers = answers,
-                heightCmText = BodyMetrics.heightText(answers.heightCm), feetText = ft, inchesText = inch,
-                weightText = BodyMetrics.weightText(answers.weightKg, answers.weightUnit),
-            ),
-        )
+        _state = MutableStateFlow(OnboardingUiState(step = start, answers = answers))
         state = _state.asStateFlow()
     }
 
@@ -93,26 +90,14 @@ class OnboardingController(
 
     private fun answers(f: (OnboardingAnswers) -> OnboardingAnswers) = _state.update { it.copy(answers = f(it.answers), error = null) }
 
-    // ---- inputs ----
-    fun setHeightCmText(t: String) = _state.update { it.copy(heightCmText = t.take(6), error = null) }
-    fun setFeetText(t: String) = _state.update { it.copy(feetText = t.take(1), error = null) }
-    fun setInchesText(t: String) = _state.update { it.copy(inchesText = t.take(4), error = null) }
-    fun setWeightText(t: String) = _state.update { it.copy(weightText = t.take(6), error = null) }
+    // ---- inputs (rulers) ----
+    /** The user moved the height ruler to [index] of the current unit's scale; stores the exact canonical cm. */
+    fun setHeightIndex(index: Int) = answers { a -> MeasurementScales.height(a.heightUnit).let { sc -> a.copy(heightCm = sc.toCanonical(sc.clamp(index))) } }
+    fun setWeightIndex(index: Int) = answers { a -> MeasurementScales.weight(a.weightUnit).let { sc -> a.copy(weightKg = sc.toCanonical(sc.clamp(index))) } }
 
-    /** Switching units converts a valid entry instead of discarding it. */
-    fun setHeightUnit(u: HeightUnit) = _state.update { s ->
-        if (s.answers.heightUnit == u) return@update s
-        val cm = (s.height as? Measurement.Valid)?.value
-        val (ft, inch) = BodyMetrics.feetInches(cm)
-        s.copy(answers = s.answers.copy(heightUnit = u), heightCmText = if (cm != null) BodyMetrics.heightText(cm) else s.heightCmText.takeIf { u == HeightUnit.CM }.orEmpty(),
-            feetText = if (cm != null) ft else "", inchesText = if (cm != null) inch else "")
-    }
-
-    fun setWeightUnit(u: WeightUnit) = _state.update { s ->
-        if (s.answers.weightUnit == u) return@update s
-        val kg = (s.weight as? Measurement.Valid)?.value
-        s.copy(answers = s.answers.copy(weightUnit = u), weightText = if (kg != null) BodyMetrics.weightText(kg, u) else "")
-    }
+    /** Switching units changes only the display: the canonical value is untouched (no drift). */
+    fun setHeightUnit(u: HeightUnit) = answers { it.copy(heightUnit = u) }
+    fun setWeightUnit(u: WeightUnit) = answers { it.copy(weightUnit = u) }
 
     fun setExperience(e: ExperienceLevel) = answers { it.copy(experience = e) }
     fun toggleArea(a: BodyArea) = answers { it.toggleArea(a) }
@@ -126,12 +111,8 @@ class OnboardingController(
     suspend fun next() {
         val s = state.value
         if (!s.canContinue) return
-        val answers = when (s.step) {
-            OnboardingStep.HEIGHT -> s.answers.copy(heightCm = (s.height as Measurement.Valid).value)
-            OnboardingStep.WEIGHT -> s.answers.copy(weightKg = (s.weight as Measurement.Valid).value)
-            else -> s.answers
-        }
-        persist(s.step, answers, skipped = s.step == OnboardingStep.WELCOME)
+        // canContinue already guarantees an in-range height/weight on those steps.
+        persist(s.step, s.answers, skipped = s.step == OnboardingStep.WELCOME)
     }
 
     suspend fun skip() {

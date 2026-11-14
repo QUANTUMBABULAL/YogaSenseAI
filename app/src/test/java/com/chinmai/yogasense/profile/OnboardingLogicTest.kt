@@ -54,9 +54,9 @@ class OnboardingControllerTest {
         assertFalse(c.canGoBack()) // first screen of the required flow
         c.next()
         assertEquals(OnboardingStep.HEIGHT, c.state.value.step)
-        assertFalse(c.state.value.canContinue)
-        c.setHeightCmText("40"); assertFalse(c.state.value.canContinue)
-        c.next(); assertEquals(OnboardingStep.HEIGHT, c.state.value.step) // invalid → nothing saved
+        assertFalse("untouched ruler = no height chosen", c.state.value.canContinue)
+        c.next(); assertEquals(OnboardingStep.HEIGHT, c.state.value.step) // nothing chosen → nothing saved
+        assertTrue(r.calls.none { it.first == OnboardingStep.HEIGHT })
         assertTrue(c.canSkip())
         c.skip()
         assertEquals(OnboardingStep.WEIGHT, c.state.value.step)
@@ -67,17 +67,20 @@ class OnboardingControllerTest {
         c.setExperience(ExperienceLevel.BEGINNER); assertTrue(c.state.value.canContinue)
     }
 
-    @Test fun backPreservesAnswersAndUnitSwitchConverts() = runBlocking<Unit> {
+    @Test fun backPreservesAnswersAndUnitSwitchKeepsTheMeasurement() = runBlocking<Unit> {
         val c = OnboardingController(newProfile(), OnboardingMode.Required, Recorder().save)
-        c.next(); c.setHeightCmText("180"); c.next()
-        c.setWeightText("70"); c.setWeightUnit(WeightUnit.LB)
-        assertEquals("154.3", c.state.value.weightText)
+        c.next(); c.setHeightIndex(180); c.next()
+        c.setWeightIndex(700); c.setWeightUnit(WeightUnit.LB)            // 70.0 kg
+        assertEquals(70f, c.state.value.answers.weightKg)                // unit switch: canonical unchanged
+        assertEquals(154, c.state.value.weightIndex)                     // shown as 154 lbs
         assertTrue(c.back()); assertEquals(OnboardingStep.HEIGHT, c.state.value.step)
-        assertEquals("180", c.state.value.heightCmText)
+        assertEquals(180f, c.state.value.answers.heightCm)
         c.setHeightUnit(HeightUnit.FT_IN)
-        assertEquals("5" to "11", c.state.value.feetText to c.state.value.inchesText)
+        assertEquals(71, c.state.value.heightIndex)                      // 5′ 11″
+        assertEquals(180f, c.state.value.answers.heightCm)
+        c.setHeightUnit(HeightUnit.CM); assertEquals(180, c.state.value.heightIndex) // back and forth: no drift
         c.next() // weight again: still there
-        assertEquals("154.3", c.state.value.weightText)
+        assertEquals(70f, c.state.value.answers.weightKg)
         assertEquals(-1, OnboardingController(newProfile(), OnboardingMode.Required, Recorder().save).let { it.next(); it.back(); it.state.value.direction })
     }
 
