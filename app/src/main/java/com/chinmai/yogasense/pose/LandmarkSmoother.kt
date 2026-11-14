@@ -12,6 +12,12 @@ import kotlin.math.exp
 class LandmarkSmoother(
     private val tauMs: Float = 60f,
     private val resetGapMs: Long = 500L,
+    /**
+     * Phase 8 (assessment only): when a joint was unreliable in the previous frame, MediaPipe's
+     * position for it was a prediction. Don't blend the newly observed position with that guess —
+     * take the observation as-is. Recognition keeps the default (false), so its behaviour is unchanged.
+     */
+    private val resetOnReliabilityChange: Boolean = false,
 ) {
     private var last: PoseFrame? = null
 
@@ -30,6 +36,7 @@ class LandmarkSmoother(
         val a = 1f - exp(-dt / tauMs)
         val out = frame.landmarks.mapIndexed { i, cur ->
             val p = prev.landmarks[i]
+            if (resetOnReliabilityChange && (!p.isReliable() || !cur.isReliable())) return@mapIndexed cur
             Landmark(
                 x = p.x + a * (cur.x - p.x),
                 y = p.y + a * (cur.y - p.y),

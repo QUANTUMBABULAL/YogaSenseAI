@@ -71,7 +71,9 @@ class AssessmentPipeline(
 ) {
     /** Structured correction ids + measured improvement, for the saved session record. */
     val corrections = CorrectionLog()
-    private val smoother = LandmarkSmoother()
+    private val smoother = LandmarkSmoother(resetOnReliabilityChange = true)
+    /** Temporal reliability: brief dropouts vs persistent occlusion (Phase 8). */
+    private val reliability = com.chinmai.yogasense.pose.ReliabilityTracker()
     private var assessedPose: Pair<Asana, BodySide>? = null
     private var lastMilestone = 0
 
@@ -89,11 +91,12 @@ class AssessmentPipeline(
             return Output(null, emptyList())
         }
         val (asana, side) = pose
+        val snapshot = reliability.update(frame, nowMs)
         val f = BodyFeatures(smoother.smooth(frame))
-        val a = assessor.assess(f, asana, side, nowMs)
+        val a = assessor.assess(f, asana, side, nowMs, snapshot)
         val st = stability.add(f, nowMs)
         val reason = when {
-            !a.available -> "Some joints aren't clearly visible"
+            !a.available -> a.cameraHint ?: "Some joints aren't clearly visible"
             st.score == null -> "Hold still — measuring stability"
             st.score < hold.stabilityThreshold -> "Steady yourself to count the hold"
             else -> null
@@ -107,7 +110,8 @@ class AssessmentPipeline(
             lastMilestone = ms
             events += CoachEvent.HoldMilestoneReached(asana, ms)
         }
-        val framingOk = framing == FramingStatus.FULL_BODY
+        // Occlusion-aware: in a profile view the hidden far side is not a framing problem.
+        val framingOk = com.chinmai.yogasense.pose.OcclusionAwareFraming.accepted(framing, a.orientation, snapshot.states)
         val before = coach.improvements.size
         val assessmentEvents = coach.update(a, st, framingOk, nowMs)
         assessmentEvents.forEach {
@@ -119,7 +123,7 @@ class AssessmentPipeline(
         }
         coach.improvements.drop(before).forEach { stats.improvement(asana, it) }
         events += assessmentEvents
-        return Output(LiveAssessment(a, st, h, coach.currentCorrection(a, framingOk)), events)
+        return Output(LiveAssessment(a, st, h, coach.currentCorrection(a, framingOk), framingAccepted = framingOk), events)
     }
 
     fun summary(durationMs: Long): SessionSummary = stats.summary(durationMs, hold.snapshotTotals())

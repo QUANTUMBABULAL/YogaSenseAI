@@ -91,6 +91,8 @@ class CoachingDecisionEngine(
                     candidates += Cue("improved:${event.correctionId}", CoachingContent.improved(), CuePriority.ENCOURAGEMENT)
                 }
             }
+            is CoachEvent.CameraAdjustmentNeeded ->
+                candidates += Cue("camera:${event.message}", event.message, CuePriority.FRAMING)
             is CoachEvent.StabilityDecreased ->
                 candidates += Cue("stability", CoachingContent.STEADY, CuePriority.CORRECTION)
             CoachEvent.SessionPaused -> { paused = true; return emptyList() }

@@ -67,6 +67,8 @@ sealed interface CoachEvent {
     data class AlignmentImproved(val correctionId: String) : CoachEvent
     /** Measured stability dropped from steady to unsteady during a hold. */
     data class StabilityDecreased(val score: Int) : CoachEvent
+    /** Key joints have been persistently unobservable: ask for a camera/position change (Phase 8). */
+    data class CameraAdjustmentNeeded(val message: String) : CoachEvent
     data object SessionPaused : CoachEvent
     data object SessionResumed : CoachEvent
     data class SessionCompleted(val durationMs: Long) : CoachEvent

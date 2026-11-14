@@ -16,6 +16,12 @@ import kotlin.math.sqrt
  *
  * Score is null until ≥ [minSamples] reliable samples span ≥ [minSpanMs]. Frames without a reliable
  * torso are skipped; a gap > [maxGapMs] or [reset] (pose lost/changed) clears the window.
+ *
+ * Phase 8: in a profile view the far shoulder/hip is often hidden, so the trunk midline is not
+ * available. Then the VISIBLE side's shoulder and hip (normalised by that side's trunk length)
+ * are used — but only when no midline window is active (a brief one-side dropout during a
+ * midline window is skipped). Samples from different sources are never mixed: switching source
+ * clears the window, so a source change can't masquerade as sway.
  */
 class StabilityAnalyzer(
     private val windowMs: Long = 3000,
@@ -27,17 +33,29 @@ class StabilityAnalyzer(
 ) {
     private class Sample(val t: Long, val hx: Float, val hy: Float, val sx: Float, val sy: Float)
     private val window = ArrayDeque<Sample>()
+    private var source: String? = null
 
-    fun reset() = window.clear()
+    fun reset() { window.clear(); source = null }
 
     fun add(f: BodyFeatures, timeMs: Long): StabilityResult {
-        val torso = f.torsoLength
-        val hip = f.midHipPoint
-        val sh = f.midShoulderPoint
         val last = window.lastOrNull()
-        if (last != null && timeMs - last.t > maxGapMs) window.clear()
-        if (torso != null && hip != null && sh != null) {
-            window.addLast(Sample(timeMs, hip.x / torso, hip.y / torso, sh.x / torso, sh.y / torso))
+        if (last != null && timeMs - last.t > maxGapMs) { window.clear(); source = null }
+        val sample: Pair<String, Sample>? = run {
+            val torso = f.torsoLength; val hip = f.midHipPoint; val sh = f.midShoulderPoint
+            if (torso != null && hip != null && sh != null) return@run "midline" to Sample(timeMs, hip.x / torso, hip.y / torso, sh.x / torso, sh.y / torso)
+            // A midline window is active: a frame with one side briefly hidden is skipped, never a reset.
+            if (source == "midline" && window.isNotEmpty()) return@run null
+            for (side in listOf(com.chinmai.yogasense.asana.BodySide.LEFT, com.chinmai.yogasense.asana.BodySide.RIGHT)) {
+                val t = f.torsoLengthSide(side) ?: continue
+                val hp = f.point(if (side == com.chinmai.yogasense.asana.BodySide.LEFT) com.chinmai.yogasense.pose.PoseLandmarkIndex.LEFT_HIP else com.chinmai.yogasense.pose.PoseLandmarkIndex.RIGHT_HIP) ?: continue
+                val s = f.point(if (side == com.chinmai.yogasense.asana.BodySide.LEFT) com.chinmai.yogasense.pose.PoseLandmarkIndex.LEFT_SHOULDER else com.chinmai.yogasense.pose.PoseLandmarkIndex.RIGHT_SHOULDER) ?: continue
+                return@run "side-$side" to Sample(timeMs, hp.x / t, hp.y / t, s.x / t, s.y / t)
+            }
+            null
+        }
+        if (sample != null) {
+            if (sample.first != source) { window.clear(); source = sample.first }
+            window.addLast(sample.second)
         }
         while (window.isNotEmpty() && window.first().t < timeMs - windowMs) window.removeFirst()
         return current()

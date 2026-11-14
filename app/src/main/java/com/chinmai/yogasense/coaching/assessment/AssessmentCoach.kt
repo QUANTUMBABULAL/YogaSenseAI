@@ -19,7 +19,10 @@ class AssessmentCoach(
     private val improvedScore: Float = 0.85f,
     private val stableHigh: Int = 70,
     private val stableLow: Int = 45,
+    /** Minimum time between two camera-adjustment requests (the hint itself is already persistence-gated). */
+    private val cameraHintRepeatMs: Long = 20_000,
 ) {
+    private var lastCameraHintAt = Long.MIN_VALUE / 2
     private var candidateId: String? = null
     private var candidateSince = 0L
     private val lastEmitted = HashMap<String, Long>()
@@ -38,12 +41,18 @@ class AssessmentCoach(
 
     fun update(alignment: AlignmentResult?, stability: StabilityResult, framingOk: Boolean, timeMs: Long): List<CoachEvent> {
         val events = mutableListOf<CoachEvent>()
+        // Phase 8: when key joints stay unobservable, ask for a camera/position change instead of
+        // correcting a limb we can't see. Rate-limited; never repeated every frame.
+        alignment?.cameraHint?.let { hint ->
+            if (timeMs - lastCameraHintAt >= cameraHintRepeatMs) { lastCameraHintAt = timeMs; events += CoachEvent.CameraAdjustmentNeeded(hint) }
+        }
         if (alignment == null || !alignment.available || !framingOk) {
             candidateId = null; goodSince.clear()
             return events
         }
 
-        // Improvement on previously corrected metrics (measured, sustained).
+        // Improvement on previously corrected metrics (measured, sustained). A metric that is not
+        // evaluated (hidden, low confidence, wrong angle) has no score, so it can never "improve".
         val done = mutableListOf<String>()
         for ((cid, metricId) in awaitingImprovement) {
             val m = alignment.metric(metricId)
