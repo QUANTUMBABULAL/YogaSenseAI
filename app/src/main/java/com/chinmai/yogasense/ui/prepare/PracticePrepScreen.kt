@@ -82,7 +82,7 @@ fun PracticePrepScreen(
     vm: AssistanceViewModel = assistanceViewModel(),
 ) {
     val context = LocalContext.current
-    var selectedId by rememberSaveable { mutableStateOf(AsanaCatalog.byId(initialAsanaId)?.id) }
+    var selectedId by rememberSaveable { mutableStateOf(AsanaCatalog.byId(initialAsanaId)?.takeIf { it.liveSupported }?.id) }
     val info = AsanaCatalog.byId(selectedId)
     val coach by vm.coach.collectAsStateWithLifecycle()
     val visual by vm.visual.collectAsStateWithLifecycle()
@@ -153,7 +153,7 @@ fun PracticePrepScreen(
 private fun PoseChooser(selectedId: String?, onSelect: (String?) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = Spacing.gutter), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         item { SelectChip("Any pose", selectedId == null, { onSelect(null) }) }
-        items(AsanaCatalog.all, key = { it.id }) { a -> SelectChip(a.name, a.id == selectedId, { onSelect(a.id) }) }
+        items(AsanaCatalog.live, key = { it.id }) { a -> SelectChip(a.name, a.id == selectedId, { onSelect(a.id) }) }
     }
 }
 
@@ -166,7 +166,7 @@ private fun PoseHero(info: AsanaInfo?, onOpenLesson: (String) -> Unit) {
                 Spacer(Modifier.height(Spacing.xs))
                 Text(info?.name ?: "Any supported pose", style = MaterialTheme.typography.headlineSmall, color = WarmWhite)
                 Text(
-                    info?.let { "${it.sanskrit} · hold ${it.holdLabel}" } ?: "Mountain, Tree, Warrior II, Chair or Triangle is recognised automatically",
+                    info?.let { "${it.englishName} · hold ${it.holdLabel}" } ?: "Tadasana, Vrikshasana, Virabhadrasana II, Utkatasana or Trikonasana is recognised automatically",
                     style = MaterialTheme.typography.bodyMedium, color = TextMuted,
                 )
             }
@@ -199,7 +199,7 @@ private fun SetupChecklist(info: AsanaInfo?) {
             when (info?.cameraView) {
                 CameraView.SIDE -> "Stand side-on to the camera for this pose"
                 CameraView.FRONT -> "Face the camera for this pose"
-                null -> "Face the camera; stand side-on for Chair Pose"
+                null -> "Face the camera; stand side-on for Utkatasana"
             },
         )
         CheckRow(YsIcons.Leaf, "Clear space around you, on a non-slip surface")

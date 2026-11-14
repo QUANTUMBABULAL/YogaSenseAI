@@ -79,4 +79,26 @@ internal object DemoFigures {
         kneeL = p(.56f, .66f), kneeR = p(.55f, .66f),
         ankleL = p(.53f, .91f), ankleR = p(.52f, .91f),
     )
+
+    /** Lying on the back, knees bent, hands beside the ears (lead-in for Chakrasana), side view. */
+    val SUPINE_KNEES_BENT = PoseFigure(
+        head = .22f to .82f,
+        shoulderL = .33f to .84f, shoulderR = .31f to .84f,
+        elbowL = .30f to .70f, elbowR = .28f to .70f,
+        wristL = .24f to .80f, wristR = .22f to .80f,
+        hipL = .56f to .84f, hipR = .54f to .84f,
+        kneeL = .70f to .60f, kneeR = .68f to .60f,
+        ankleL = .78f to .86f, ankleR = .76f to .86f,
+    )
+
+    /** Lying on the front, hands under the shoulders (lead-in for Bhujangasana), side view. */
+    val PRONE = PoseFigure(
+        head = .84f to .80f,
+        shoulderL = .74f to .82f, shoulderR = .72f to .82f,
+        elbowL = .70f to .74f, elbowR = .68f to .74f,
+        wristL = .75f to .86f, wristR = .73f to .86f,
+        hipL = .52f to .84f, hipR = .50f to .84f,
+        kneeL = .32f to .85f, kneeR = .30f to .85f,
+        ankleL = .13f to .86f, ankleR = .11f to .86f,
+    )
 }

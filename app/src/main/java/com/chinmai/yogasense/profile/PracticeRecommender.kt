@@ -54,12 +54,15 @@ object PracticeRecommender {
         fun levelFit(a: AsanaInfo) = when (experience) {
             ExperienceLevel.BEGINNER -> if (a.difficulty == Difficulty.BEGINNER) 2 else 0
             ExperienceLevel.INTERMEDIATE -> 1
-            ExperienceLevel.ADVANCED -> if (a.difficulty == Difficulty.INTERMEDIATE) 2 else 1
+            ExperienceLevel.ADVANCED -> if (a.difficulty != Difficulty.BEGINNER) 2 else 1
         }
         fun goalFit(a: AsanaInfo) = a.categories.count { it in wanted }
         // Stable sort: catalogue order breaks ties, so the result is deterministic.
         val ordered = catalog.sortedWith(compareByDescending<AsanaInfo> { levelFit(it) }.thenByDescending { goalFit(it) })
-        val top = ordered.filter { levelFit(it) == levelFit(ordered.first()) && goalFit(it) == goalFit(ordered.first()) }
+        // Today's practice and session plans use the camera, so only live-supported poses qualify;
+        // [ordered] (the library order) still contains every pose.
+        val live = ordered.filter { it.liveSupported }
+        val top = live.filter { levelFit(it) == levelFit(live.first()) && goalFit(it) == goalFit(live.first()) }
         val featured = top[Math.floorMod(dayOfYear, top.size)]
         val reasons = buildList {
             add(
@@ -75,7 +78,7 @@ object PracticeRecommender {
         return Suggestion(
             featured = featured,
             ordered = ordered,
-            sessionPlan = preferredMinutes?.let { m -> SessionPlan(m, ordered.take(posesFor(m, ordered.size))) },
+            sessionPlan = preferredMinutes?.let { m -> SessionPlan(m, live.take(posesFor(m, live.size))) },
             reasons = reasons,
         )
     }

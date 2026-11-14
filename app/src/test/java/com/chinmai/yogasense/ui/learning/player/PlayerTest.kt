@@ -29,7 +29,7 @@ class LessonMediaResolverTest {
 
     @Test fun assetNamesFollowConvention() {
         assertEquals(
-            listOf("asana/tadasana.mp4", "asana/tree_pose.mp4", "asana/warrior_ii.mp4", "asana/chair_pose.mp4", "asana/triangle_pose.mp4"),
+            listOf("asana/tadasana.mp4", "asana/tree_pose.mp4", "asana/warrior_ii.mp4", "asana/chair_pose.mp4", "asana/triangle_pose.mp4", "asana/bhujangasana.mp4", "asana/chakrasana.mp4"),
             AsanaCatalog.all.map { it.demoAsset },
         )
     }

@@ -425,7 +425,7 @@ private fun MainShell(
                 popExitTransition = { fadeOut(tween(180)) },
             ) { e ->
                 SystemBarIcons(darkIcons = false)
-                val plan = Routes.parsePlan(e.arguments?.getString("plan")).ifEmpty { AsanaCatalog.all.map { it.asana } }
+                val plan = Routes.parsePlan(e.arguments?.getString("plan")).ifEmpty { AsanaCatalog.live.map { it.asana } }
                 val prefs by produceState<com.chinmai.yogasense.profile.UserPreferences?>(null, session) { value = session.loadPreferences() }
                 PracticeTheme {
                     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {

@@ -65,7 +65,7 @@ data class ProgressUiState(
     val weekLabels: List<String>,
     val todayIndex: Int,
     val weekly: WeeklySummary? = null,
-    val asanas: List<AsanaInfo> = AsanaCatalog.all,
+    val asanas: List<AsanaInfo> = AsanaCatalog.live,
     val overview: PracticeOverview = PracticeOverview.EMPTY,
 ) {
     /** Any counted session ever (abandoned sessions are never counted). */
@@ -159,7 +159,7 @@ fun ProgressScreen(onStartPractice: () -> Unit, onOpenWellness: () -> Unit = {},
                         Row(Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
                                 Text(a.name, style = MaterialTheme.typography.titleSmall, color = Ink)
-                                Text(a.sanskrit, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                                Text(a.englishName, style = MaterialTheme.typography.bodySmall, color = InkMuted)
                             }
                             if (h == null) Tag("No sessions yet")
                             else Tag("${h.sessions} session${if (h.sessions == 1) "" else "s"}", style = TagStyle.Lime)

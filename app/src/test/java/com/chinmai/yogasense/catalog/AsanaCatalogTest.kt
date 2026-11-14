@@ -10,14 +10,15 @@ import org.junit.Test
 class AsanaCatalogTest {
     private val all = AsanaCatalog.all
 
-    @Test fun coversExactlyTheRecognisedAsanas() {
-        assertEquals(AsanaReferences.ALL.map { it.asana }.toSet(), all.map { it.asana }.toSet())
+    @Test fun liveAsanasAreExactlyTheRecognisedOnesAndTheRestAreLessonOnly() {
+        assertEquals(AsanaReferences.ALL.map { it.asana }.toSet(), AsanaCatalog.live.map { it.asana }.toSet())
+        assertEquals(setOf(Asana.BHUJANGASANA, Asana.CHAKRASANA), all.filterNot { it.liveSupported }.map { it.asana }.toSet())
         assertEquals(all.size, all.map { it.id }.toSet().size)
     }
 
     @Test fun entriesAreComplete() {
         all.forEach { a ->
-            assertTrue(a.name.isNotBlank() && a.sanskrit.isNotBlank() && a.summary.isNotBlank())
+            assertTrue(a.name.isNotBlank() && a.englishName.isNotBlank() && a.summary.isNotBlank())
             assertTrue("${a.id} steps", a.steps.size >= 3)
             assertTrue("${a.id} safety", a.safety.isNotEmpty())
             assertTrue("${a.id} categories", a.categories.isNotEmpty())
@@ -27,7 +28,7 @@ class AsanaCatalogTest {
 
     @Test fun cameraViewMatchesRecognitionEngineLimits() {
         assertEquals(CameraView.SIDE, AsanaCatalog.of(Asana.CHAIR)!!.cameraView)
-        all.filter { it.asana != Asana.CHAIR }.forEach { assertEquals(CameraView.FRONT, it.cameraView) }
+        AsanaCatalog.live.filter { it.asana != Asana.CHAIR }.forEach { assertEquals(CameraView.FRONT, it.cameraView) }
     }
 
     @Test fun figuresStayInsideUnitBox() {
@@ -62,8 +63,9 @@ class AsanaCatalogTest {
 
     @Test fun difficultyAndCategoryFiltersCombine() {
         assertEquals(setOf(Asana.TRIANGLE), ids(d = Difficulty.INTERMEDIATE))
-        assertEquals(setOf(Asana.WARRIOR_II, Asana.CHAIR), ids(c = Category.STRENGTH))
-        assertEquals(setOf(Asana.WARRIOR_II, Asana.CHAIR), ids(d = Difficulty.BEGINNER, c = Category.STRENGTH))
+        assertEquals(setOf(Asana.WARRIOR_II, Asana.CHAIR, Asana.BHUJANGASANA, Asana.CHAKRASANA), ids(c = Category.STRENGTH))
+        assertEquals(setOf(Asana.WARRIOR_II, Asana.CHAIR, Asana.BHUJANGASANA), ids(d = Difficulty.BEGINNER, c = Category.STRENGTH))
+        assertEquals(setOf(Asana.CHAKRASANA), ids(d = Difficulty.ADVANCED))
         assertTrue(ids("tree", c = Category.STRENGTH).isEmpty())
     }
 }

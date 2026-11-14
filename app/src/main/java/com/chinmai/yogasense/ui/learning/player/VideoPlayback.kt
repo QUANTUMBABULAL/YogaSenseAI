@@ -20,7 +20,11 @@ class VideoPlayback(context: Context, assetPath: String, autoPlay: Boolean, loop
     private val _state = MutableStateFlow(PlaybackState(PlaybackStatus.Loading, isPlaying = false))
     override val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
-    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext).build().apply {
+    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext).build()
+
+    // Configured AFTER `player` is assigned: prepare() fires onPlaybackStateChanged synchronously,
+    // and that listener calls sync(), which reads `player` (it was still null inside an initialiser).
+    init { player.apply {
         repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         volume = 0f // demonstrations are silent; avoids taking audio focus
         // Built with Uri.Builder so file names with spaces (e.g. "Vrukshasana-Tree pose.mp4") are encoded correctly.
@@ -40,7 +44,7 @@ class VideoPlayback(context: Context, assetPath: String, autoPlay: Boolean, loop
             }
         })
         prepare()
-    }
+    } }
 
     /** Refresh position; called periodically by the UI while playing. */
     fun sync() {

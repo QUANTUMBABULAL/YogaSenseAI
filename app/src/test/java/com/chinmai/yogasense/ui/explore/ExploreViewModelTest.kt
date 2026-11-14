@@ -11,8 +11,8 @@ import org.junit.Test
 class ExploreViewModelTest {
     @Test fun initialStateShowsWholeCatalogue() {
         val vm = ExploreViewModel()
-        assertEquals(5, vm.state.value.results.size)
-        assertEquals(5, vm.state.value.total)
+        assertEquals(7, vm.state.value.results.size)
+        assertEquals(7, vm.state.value.total)
         assertFalse(vm.state.value.hasFilters)
     }
 
@@ -35,7 +35,7 @@ class ExploreViewModelTest {
         vm.onCategory(Category.STRENGTH)
         assertTrue(vm.state.value.results.isEmpty())
         vm.clearFilters()
-        assertEquals(5, vm.state.value.results.size)
+        assertEquals(7, vm.state.value.results.size)
         assertEquals("", vm.state.value.query)
     }
 }

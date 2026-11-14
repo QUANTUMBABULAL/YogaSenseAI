@@ -13,7 +13,7 @@ class SessionSuggestionsTest {
     @Test fun noPoseGivesFramingAdvice() {
         val s = SessionSuggestions.of(SessionSummary(60_000, emptyList(), emptyList()), Asana.TREE)
         assertTrue(s.first().contains("whole body"))
-        assertTrue(s.any { it.contains("Tree Pose lesson") })
+        assertTrue(s.any { it.contains("Vrikshasana lesson") })
     }
 
     @Test fun mostFrequentCorrectionIsSuggested() {
@@ -36,7 +36,7 @@ class SessionSuggestionsTest {
 
     @Test fun targetNotRecognisedIsCalledOut() {
         val s = SessionSuggestions.of(SessionSummary(60_000, listOf(Asana.TADASANA), listOf(pose(Asana.TADASANA, 40_000))), Asana.CHAIR)
-        assertTrue(s.first().contains("Chair Pose wasn't recognised"))
+        assertTrue(s.first().contains("Utkatasana wasn't recognised"))
     }
 
     @Test fun neverMoreThanThreeAndNeverEmpty() {

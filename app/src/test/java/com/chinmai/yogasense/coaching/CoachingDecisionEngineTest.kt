@@ -32,7 +32,7 @@ class CoachingDecisionEngineTest {
     @Test fun guidedAnnouncesConfirmedPoseWithInstruction() {
         val cues = engine().onEvent(recognised(), 10_000)
         assertEquals(1, cues.size)
-        assertTrue(cues[0].text.startsWith("Tree Pose."))
+        assertTrue(cues[0].text.startsWith("Vrikshasana."))
         assertEquals(CuePriority.INSTRUCTION, cues[0].priority)
     }
 
@@ -137,7 +137,7 @@ class CoachingDecisionEngineTest {
 
     @Test fun differentPoseThanTargetIsNamedNotPraised() {
         val cues = engine(target = Asana.WARRIOR_II).onEvent(recognised(Asana.TRIANGLE), 10_000)
-        assertTrue(cues.single().text.contains("Triangle") && cues.single().text.contains("Warrior"))
+        assertTrue(cues.single().text.contains("Trikonasana") && cues.single().text.contains("Virabhadrasana"))
     }
 
     @Test fun sessionResetClearsCooldowns() {

@@ -1,5 +1,10 @@
 package com.chinmai.yogasense.ui.practice
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.contentDescription
+import com.chinmai.yogasense.ui.components.YsIcons
+import com.chinmai.yogasense.coaching.assessment.SessionScoring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -95,7 +100,7 @@ fun GuidedSessionOverlay(
 ) {
     val secondsLeft = remainingMs?.let { ceil(it / 1000.0).toInt() } ?: 0
     when {
-        s.stage == GuidedStage.SESSION_COMPLETED -> Panel(null) { Completion(s, summary, actions) }
+        s.stage == GuidedStage.SESSION_COMPLETED -> Panel(null) { Completion(s, summary, actions, holdTargetMs) }
         s.paused -> Panel(null) { Paused(s, actions) }
         s.stage == GuidedStage.INTRO -> Panel(actions) { Intro(s, secondsLeft) }
         s.stage == GuidedStage.DEMONSTRATION -> Panel(actions) { Demonstration(s, actions) }
@@ -120,9 +125,19 @@ private fun Modifier.blockTouches() = pointerInput(Unit) { awaitPointerEventScop
 /** Always-visible pause and safe exit. */
 @Composable
 private fun SessionControls(a: GuidedActions, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        TextButton(onClick = a.onPause) { Text("Pause", color = WarmWhite) }
-        TextButton(onClick = a.onExit) { Text("End", color = WarmWhite) }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.height(44.dp).clip(CircleShape).background(Surface1).clickable(onClick = a.onPause).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(YsIcons.Pause, null, tint = WarmWhite, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Pause", color = WarmWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Box(
+            Modifier.height(44.dp).clip(CircleShape).background(Coral.copy(alpha = 0.16f)).clickable(onClick = a.onExit).padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text("End", color = Coral, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -150,18 +165,69 @@ private fun PrimaryAction(text: String, onClick: () -> Unit, modifier: Modifier 
 private fun SecondaryAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
     OutlinedButton(onClick, modifier.fillMaxWidth().height(48.dp)) { Text(text, color = WarmWhite) }
 
+/** Session overview: what is coming, how to set up, and a clear countdown. */
 @Composable
 private fun Intro(s: GuidedState, secondsLeft: Int) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Text("GUIDED SESSION", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        BigTitle("${s.plan.size} poses · about ${s.plan.size} min plus rests")
-        Spacer(Modifier.height(16.dp))
-        s.plan.forEachIndexed { i, a -> Text("${i + 1}. ${name(a)}", color = WarmWhite, fontSize = 17.sp, modifier = Modifier.padding(vertical = 3.dp)) }
-        Spacer(Modifier.height(20.dp))
-        Text("Place the phone so your whole body is visible. You won't need to touch it — everything runs automatically.", color = TextMuted, fontSize = 15.sp)
-        Spacer(Modifier.height(24.dp))
-        Text("Starting in $secondsLeft…", color = WarmWhite, fontSize = 18.sp, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Spacer(Modifier.height(20.dp))
+            Text(
+                "GUIDED SESSION", color = Midnight, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+                modifier = Modifier.clip(CircleShape).background(Accent).padding(horizontal = 10.dp, vertical = 5.dp),
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "${s.plan.size} poses", color = WarmWhite, fontSize = 40.sp, fontWeight = FontWeight.Black, lineHeight = 44.sp, letterSpacing = (-1).sp,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text("About ${s.plan.size} min, plus short rests", color = TextMuted, fontSize = 16.sp)
+            Spacer(Modifier.height(20.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Surface1).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                s.plan.forEachIndexed { i, a ->
+                    val info = AsanaCatalog.of(a)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${i + 1}", color = TextMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(Midnight), contentAlignment = Alignment.Center) {
+                            if (info != null) AsanaFigure(info.figure, Modifier.size(34.dp), color = Accent)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(name(a), color = WarmWhite, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            if (info != null) Text(info.englishName, color = TextMuted, fontSize = 13.sp)
+                        }
+                    }
+                    if (i < s.plan.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 76.dp).height(1.dp).background(WarmWhite.copy(alpha = 0.08f)))
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            IntroTip(YsIcons.Camera, "Place the phone so your whole body is visible")
+            IntroTip(YsIcons.Voice, "Hands-free: follow the voice, no need to touch the phone")
+            Spacer(Modifier.height(12.dp))
+        }
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Surface1).padding(horizontal = 18.dp, vertical = 14.dp)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite; contentDescription = "Starting in $secondsLeft seconds" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Starting in", color = TextMuted, fontSize = 14.sp)
+                Text("Get into position", color = WarmWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Box(Modifier.size(64.dp).clip(CircleShape).background(Coral), contentAlignment = Alignment.Center) {
+                Text("$secondsLeft", color = Midnight, fontSize = 30.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+private fun IntroTip(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(Surface1), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Accent, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(text, color = TextMuted, fontSize = 14.sp)
     }
 }
 
@@ -176,7 +242,7 @@ private fun Demonstration(s: GuidedState, a: GuidedActions) {
         Progress(s)
         Spacer(Modifier.height(12.dp))
         BigTitle(info.name)
-        Text(info.sanskrit, color = TextMuted, fontSize = 14.sp)
+        Text(info.englishName, color = TextMuted, fontSize = 14.sp)
         Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             // Reuses the Phase 5 player; it labels illustrations honestly ("not a video").
@@ -230,7 +296,7 @@ private fun PoseBanner(s: GuidedState, holdTargetMs: Long, a: GuidedActions) {
                     Text(name(s.current), color = WarmWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
-                    if (holding) "Pose detected" else "Waiting for pose…",
+                    if (holding) "Pose detected" else if (s.holdMs > 0) "Timer paused" else "Waiting for pose…",
                     color = if (holding) Midnight else WarmWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clip(CircleShape).background(if (holding) Accent else Surface1).padding(horizontal = 10.dp, vertical = 5.dp)
                         .semantics { liveRegion = LiveRegionMode.Polite },
@@ -242,7 +308,7 @@ private fun PoseBanner(s: GuidedState, holdTargetMs: Long, a: GuidedActions) {
             }
             Spacer(Modifier.height(4.dp))
             Row {
-                Text("Steady hold ${s.holdMs / 1000} / ${holdTargetMs / 1000} s", color = TextMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Text(if (!holding && s.holdMs > 0) "Paused at ${s.holdMs / 1000} / ${holdTargetMs / 1000} s · get back into the pose to continue" else "Steady hold ${s.holdMs / 1000} / ${holdTargetMs / 1000} s", color = TextMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = a.onSkipPose, modifier = Modifier.height(32.dp)) { Text("Skip pose", color = WarmWhite, fontSize = 12.sp) }
             }
         }
@@ -325,8 +391,10 @@ private fun Paused(s: GuidedState, a: GuidedActions) {
 }
 
 @Composable
-private fun Completion(s: GuidedState, summary: SessionSummary?, a: GuidedActions) {
+private fun Completion(s: GuidedState, summary: SessionSummary?, a: GuidedActions, holdTargetMs: Long) {
     val done = s.results.filter { it.completed }
+    // In a guided session every pose has the same hold target, so that is the hold goal.
+    val score = remember(summary) { summary?.let { SessionScoring.score(it) { holdTargetMs } } }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text(if (s.endedEarly) "SESSION ENDED" else "SESSION COMPLETE", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -334,6 +402,21 @@ private fun Completion(s: GuidedState, summary: SessionSummary?, a: GuidedAction
             BigTitle("${done.size} of ${s.plan.size} poses completed")
             Text("Total steady hold ${done.sumOf { it.stableHoldMs } / 1000} s", color = TextMuted, fontSize = 15.sp)
             Spacer(Modifier.height(16.dp))
+            if (score != null) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Surface1).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(score.total?.toString() ?: "—", color = if (score.total != null) Accent else TextMuted, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                        Text("of 100", color = TextMuted, fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("POSTURE SCORE", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(score.band?.label ?: "Not scored", color = WarmWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(score.headline, color = TextMuted, fontSize = 13.sp)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             s.plan.forEachIndexed { i, asana ->
                 val r: GuidedPoseResult? = s.results.getOrNull(i)?.takeIf { it.asana == asana }
                 val p = summary?.poses?.firstOrNull { it.asana == asana }
@@ -344,14 +427,21 @@ private fun Completion(s: GuidedState, summary: SessionSummary?, a: GuidedAction
                             color = if (r?.completed == true) Accent else TextMuted, fontSize = 13.sp)
                     }
                     if (r?.completed == true) Text("Steady hold ${r.stableHoldMs / 1000} s", color = TextMuted, fontSize = 13.sp)
+                    score?.of(asana)?.let { ps ->
+                        Text(
+                            "Score: " + (ps.total?.let { "$it/100 · ${ps.band?.label}" } ?: "not scored") + (ps.hold?.let { " · Hold $it/100" } ?: ""),
+                            color = if (ps.total != null) WarmWhite else TextMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                     if (p != null) {
                         Text("Alignment: " + (p.meanAlignment?.let { "$it/100" } ?: "not enough data") + " · Stability: " + (p.meanStability?.let { "$it/100" } ?: "not enough data"),
                             color = TextMuted, fontSize = 13.sp)
                     }
+                    score?.of(asana)?.note?.let { Text(it, color = WarmWhite, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text("Alignment and stability are prototype estimates from a single camera — not clinical measurements.", color = TextMuted, fontSize = 11.sp)
+            Text("Scores are prototype estimates from a single camera (alignment 50%, stability 25%, hold 25%) — not clinical measurements.", color = TextMuted, fontSize = 11.sp)
             // Integration point: a post-session meditation can be offered here once that feature exists.
         }
         PrimaryAction("Done", a.onDone)

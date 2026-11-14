@@ -61,7 +61,7 @@ fun ExploreScreen(onOpenAsana: (String) -> Unit, viewModel: ExploreViewModel = v
     ) {
         item(span = full) {
             Column(Modifier.padding(top = Spacing.md)) {
-                Text("LIBRARY", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+                Text("ASANA LIBRARY", style = MaterialTheme.typography.labelSmall, color = InkMuted)
                 Text("Find your pose", style = MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(Spacing.md))
                 OutlinedTextField(

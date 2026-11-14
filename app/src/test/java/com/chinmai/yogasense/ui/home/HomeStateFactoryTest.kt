@@ -41,8 +41,9 @@ class HomeStateFactoryTest {
     }
 
     @Test fun featuredRotatesThroughCatalogueDeterministically() {
-        val picks = (1..AsanaCatalog.all.size).map { HomeStateFactory.featuredFor(it) }.toSet()
-        assertEquals(AsanaCatalog.all.toSet(), picks)
+        // Today's practice rotates through the poses the camera can follow (never a lesson-only pose).
+        val picks = (1..AsanaCatalog.live.size).map { HomeStateFactory.featuredFor(it) }.toSet()
+        assertEquals(AsanaCatalog.live.toSet(), picks)
         assertEquals(HomeStateFactory.featuredFor(40), HomeStateFactory.featuredFor(40))
         assertEquals(AsanaCatalog.all, HomeStateFactory.create(0L, tz, Locale.US).explore)
     }

@@ -99,14 +99,14 @@ class SessionClockAndGuidanceTest {
         assertEquals("Camera busy", g(cam = CameraStatus.Error("Camera busy")).text)
         assertEquals(FramingStatus.NO_BODY.message, g(pose = false).text)
         assertEquals(FramingStatus.SHOW_FEET.message, g(f = FramingStatus.SHOW_FEET, r = Recognition(Asana.TREE, .9f, true)).text)
-        assertEquals("Holding Tree Pose · 12 s steady", g(r = Recognition(Asana.TREE, .9f, true), hold = Asana.TREE to 12_400).text)
+        assertEquals("Holding Vrikshasana · 12 s steady", g(r = Recognition(Asana.TREE, .9f, true), hold = Asana.TREE to 12_400).text)
         assertTrue(g(r = Recognition(Asana.UNKNOWN, 0f, false, pending = Asana.TREE)).text.contains("Hold still"))
     }
 
     @Test fun captionHiddenWhenItRepeatsOnScreenText() {
         assertEquals(null, PracticeGuidance.caption("Step into the camera view.", "Step into the camera view"))
         assertEquals("Tree Pose. Focus on a steady point in front of you.",
-            PracticeGuidance.caption("Tree Pose. Focus on a steady point in front of you.", "Holding Tree Pose · 3 s"))
+            PracticeGuidance.caption("Tree Pose. Focus on a steady point in front of you.", "Holding Vrikshasana · 3 s"))
         assertEquals(null, PracticeGuidance.caption(null, "x"))
     }
 
@@ -119,7 +119,7 @@ class SessionClockAndGuidanceTest {
     @Test fun recognitionLabelNeverNamesUnconfirmedPose() {
         assertEquals("Detecting…", PracticeGuidance.recognitionLabel(Recognition(Asana.UNKNOWN, 0f, false, pending = Asana.TREE)))
         assertEquals("No pose yet", PracticeGuidance.recognitionLabel(Recognition.NONE))
-        assertEquals("Chair Pose", PracticeGuidance.recognitionLabel(Recognition(Asana.CHAIR, .8f, true)))
+        assertEquals("Utkatasana", PracticeGuidance.recognitionLabel(Recognition(Asana.CHAIR, .8f, true)))
         assertEquals("1:05", PracticeGuidance.formatClock(65_900))
     }
 }

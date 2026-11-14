@@ -112,7 +112,7 @@ fun PoseLearningScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 DifficultyTag(lesson.info.difficulty)
                 Tag(lesson.info.holdLabel, icon = YsIcons.Clock)
-                Tag(lesson.info.cameraView.label, icon = YsIcons.Camera)
+                if (lesson.info.liveSupported) Tag(lesson.info.cameraView.label, icon = YsIcons.Camera)
             }
             Spacer(Modifier.height(Spacing.md))
             Text(lesson.intro, style = MaterialTheme.typography.bodyLarge, color = Ink)
@@ -139,7 +139,9 @@ fun PoseLearningScreen(
             }
             Spacer(Modifier.height(Spacing.lg))
         }
-        BottomActions(onSkip = { onSkip(lesson) }, onContinue = { onContinue(lesson) })
+        // Lesson-only poses have no camera practice to continue to.
+        if (lesson.info.liveSupported) BottomActions(onSkip = { onSkip(lesson) }, onContinue = { onContinue(lesson) })
+        else LessonOnlyActions(onBack)
     }
 }
 
@@ -153,7 +155,7 @@ private fun Header(lesson: LessonContent, scrollProgress: Float, onBack: () -> U
                 Column(Modifier.weight(1f)) {
                     Text("LESSON", style = MaterialTheme.typography.labelSmall, color = CoralDeep)
                     Text(lesson.info.name, style = MaterialTheme.typography.titleLarge, color = Ink)
-                    Text(lesson.info.sanskrit, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                    Text(lesson.info.englishName, style = MaterialTheme.typography.bodySmall, color = InkMuted)
                 }
             }
             LinearProgressIndicator(
@@ -215,6 +217,22 @@ private fun NumberedRow(n: Int, text: String, last: Boolean) {
         }
         Spacer(Modifier.width(Spacing.md - 4.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = Ink, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun LessonOnlyActions(onDone: () -> Unit) {
+    Surface(color = CardWhite) {
+        Column {
+            HorizontalDivider(color = Hairline)
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = Spacing.gutter, vertical = Spacing.sm + 4.dp)) {
+                PrimaryButton("Done", onDone, modifier = Modifier.fillMaxWidth())
+                Text(
+                    "Live camera practice isn't available for this pose yet.",
+                    style = MaterialTheme.typography.bodySmall, color = InkMuted, modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
     }
 }
 

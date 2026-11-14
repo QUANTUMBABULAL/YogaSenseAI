@@ -63,7 +63,7 @@ object HomeStateFactory {
     }
 
     /** Rotates through the catalogue by day: a suggestion, not a record of user activity. */
-    fun featuredFor(dayOfYear: Int): AsanaInfo = AsanaCatalog.all[Math.floorMod(dayOfYear, AsanaCatalog.all.size)]
+    fun featuredFor(dayOfYear: Int): AsanaInfo = AsanaCatalog.live[Math.floorMod(dayOfYear, AsanaCatalog.live.size)]
 
     /** Monday-first single-letter labels. ("EEEEE" is not portable between JVM and Android.) */
     private fun weekLabels(locale: Locale, tz: TimeZone): List<String> {

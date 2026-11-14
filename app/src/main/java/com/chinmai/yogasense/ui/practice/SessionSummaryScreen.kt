@@ -1,5 +1,10 @@
 package com.chinmai.yogasense.ui.practice
 
+import androidx.compose.runtime.remember
+import com.chinmai.yogasense.coaching.assessment.PoseScore
+import com.chinmai.yogasense.coaching.assessment.SessionScore
+import com.chinmai.yogasense.coaching.assessment.SessionScoring
+import com.chinmai.yogasense.ui.components.RingProgress
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -68,6 +73,8 @@ fun SessionSummaryScreen(
     onKeepPractising: () -> Unit,
 ) {
     val totalHold = summary.poses.sumOf { it.stableHoldTotalMs }
+    // Hold goal = the pose's own minimum recommended hold from the catalogue.
+    val score = remember(summary) { SessionScoring.score(summary) { a -> (AsanaCatalog.of(a)?.holdSeconds?.first ?: 20) * 1000L } }
     Column(Modifier.fillMaxSize().background(Midnight)) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp),
@@ -84,6 +91,7 @@ fun SessionSummaryScreen(
                     color = WarmWhite, fontSize = 30.sp, fontWeight = FontWeight.Bold, lineHeight = 36.sp,
                 )
             }
+            ScoreHero(score)
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Surface1).padding(vertical = 16.dp),
             ) {
@@ -99,7 +107,7 @@ fun SessionSummaryScreen(
                 )
             } else {
                 Text("Your poses", color = WarmWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                summary.poses.sortedByDescending { it.stableHoldTotalMs }.forEach { PoseCard(it) }
+                summary.poses.sortedByDescending { it.stableHoldTotalMs }.forEach { PoseCard(it, score.of(it.asana)) }
             }
 
             val suggestions = SessionSuggestions.of(summary, target)
@@ -119,7 +127,7 @@ fun SessionSummaryScreen(
                 }
             }
             Text(
-                "Alignment and stability are prototype estimates from a single phone camera, not clinical or validated measurements." +
+                "Scores are prototype estimates from a single phone camera (alignment 50%, stability 25%, hold 25%), not clinical or validated measurements." +
                     if (willSave) " This summary is saved on this phone only." else " Sessions under 10 seconds aren't saved to your history.",
                 color = TextMuted, fontSize = 12.sp, lineHeight = 17.sp,
             )
@@ -155,7 +163,7 @@ private fun BigStat(label: String, value: String, modifier: Modifier) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PoseCard(p: PoseSummary) {
+private fun PoseCard(p: PoseSummary, score: PoseScore?) {
     val info = AsanaCatalog.of(p.asana)
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Surface1).padding(16.dp),
@@ -174,9 +182,21 @@ private fun PoseCard(p: PoseSummary) {
                     color = TextMuted, fontSize = 13.sp,
                 )
             }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(score?.total?.toString() ?: "—", color = if (score?.total != null) Lime else TextMuted, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text(score?.band?.label ?: "Not scored", color = TextMuted, fontSize = 11.sp)
+            }
         }
-        ScoreBar("Alignment", p.meanAlignment)
-        ScoreBar("Stability", p.meanStability)
+        ScoreBar("Alignment · 50%", p.meanAlignment)
+        ScoreBar("Stability · 25%", p.meanStability)
+        ScoreBar("Hold · 25%", score?.hold)
+        score?.note?.let { note ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surface2).padding(12.dp)) {
+                Icon(YsIcons.Leaf, null, tint = Lime, modifier = Modifier.padding(top = 2.dp).size(14.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(note, color = WarmWhite, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        }
         if (p.corrections.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Corrections", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -197,6 +217,34 @@ private fun PoseCard(p: PoseSummary) {
                         Text("Improved: $label", color = Lime, fontSize = 12.sp)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Overall posture score: ring, grade and the coach's one-line verdict. */
+@Composable
+private fun ScoreHero(score: SessionScore) {
+    val total = score.total
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Surface1).padding(18.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Posture score ${total?.let { "$it out of 100, ${score.band?.label}" } ?: "not available"}. ${score.headline}" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RingProgress((total ?: 0) / 100f, size = 104.dp, stroke = 10.dp, color = Lime, track = Surface2) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(total?.toString() ?: "—", color = WarmWhite, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                Text("of 100", color = TextMuted, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text("POSTURE SCORE", color = Lime, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Text(score.band?.label ?: "Not scored", color = WarmWhite, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(score.headline, color = TextMuted, fontSize = 13.sp, lineHeight = 18.sp)
+            if (total != null && score.scoredPoses < score.poses.size) {
+                Text("Based on ${score.scoredPoses} of ${score.poses.size} poses that could be measured.", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }

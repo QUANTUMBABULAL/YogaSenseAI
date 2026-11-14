@@ -10,6 +10,8 @@ import com.chinmai.yogasense.ui.theme.AccentCoral
 import com.chinmai.yogasense.ui.theme.AccentLime
 import com.chinmai.yogasense.ui.theme.AccentMidnight
 import com.chinmai.yogasense.ui.theme.AccentMist
+import com.chinmai.yogasense.ui.theme.AccentPeach
+import com.chinmai.yogasense.ui.theme.AccentSage
 import com.chinmai.yogasense.ui.theme.AccentSand
 import com.chinmai.yogasense.ui.theme.Lime
 import com.chinmai.yogasense.ui.theme.PoseAccent
@@ -94,6 +96,8 @@ fun accentFor(info: AsanaInfo): PoseAccent = when (info.asana) {
     Asana.WARRIOR_II -> AccentCoral
     Asana.CHAIR -> AccentMidnight
     Asana.TRIANGLE -> AccentMist
+    Asana.BHUJANGASANA -> AccentPeach
+    Asana.CHAKRASANA -> AccentSage
     else -> AccentSand
 }
 
@@ -149,9 +153,12 @@ fun AsanaCard(info: AsanaInfo, onClick: () -> Unit, modifier: Modifier = Modifie
                 }
             }
             Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md)) {
-                Text(info.name, style = MaterialTheme.typography.titleLarge, color = accent.onBg, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${info.sanskrit} · ${info.difficulty.label}", style = MaterialTheme.typography.bodySmall, color = accent.onBgMuted,
+                    info.name, color = accent.onBg, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = if (info.name.length > 11) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    "${info.englishName} · ${info.difficulty.label}", style = MaterialTheme.typography.bodySmall, color = accent.onBgMuted,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

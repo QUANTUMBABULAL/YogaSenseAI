@@ -99,11 +99,23 @@ fun AsanaDetailScreen(
                         Spacer(Modifier.height(Spacing.md + 4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm + 2.dp)) {
                             Fact(YsIcons.Clock, "Hold", info.holdLabel, Modifier.weight(1.25f))
-                            Fact(YsIcons.Camera, "Camera", if (info.cameraView == CameraView.SIDE) "Side-on" else "Facing", Modifier.weight(1f))
+                            if (info.liveSupported) Fact(YsIcons.Camera, "Camera", if (info.cameraView == CameraView.SIDE) "Side-on" else "Facing", Modifier.weight(1f))
+                            else Fact(YsIcons.Play, "Format", "Lesson", Modifier.weight(1f))
                             Fact(YsIcons.Practice, "Sides", if (info.perSide) "Both" else "One", Modifier.weight(0.9f))
                         }
                         Spacer(Modifier.height(Spacing.lg))
                         Text(info.summary, style = MaterialTheme.typography.bodyLarge, color = Ink)
+                        if (!info.liveSupported) {
+                            Spacer(Modifier.height(Spacing.md))
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(LimeTint).padding(Spacing.md - 2.dp)) {
+                                Icon(YsIcons.Info, null, tint = Midnight, modifier = Modifier.padding(top = 1.dp).size(18.dp))
+                                Spacer(Modifier.width(Spacing.sm + 2.dp))
+                                Text(
+                                    "Video lesson only. Live camera feedback is not available for this pose yet.",
+                                    style = MaterialTheme.typography.bodyMedium, color = Ink,
+                                )
+                            }
+                        }
 
                         Section("How to do it")
                         YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.md + 4.dp) {
@@ -150,9 +162,11 @@ fun AsanaDetailScreen(
                     Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = Spacing.gutter, vertical = Spacing.sm + 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    SecondaryButton("Practice now", { onPracticeNow(info) }, modifier = Modifier.weight(1f).height(56.dp))
-                    Spacer(Modifier.width(Spacing.sm + 4.dp))
-                    PrimaryButton("Start learning", { onStartLearning(info) }, icon = YsIcons.Play, modifier = Modifier.weight(1.3f))
+                    if (info.liveSupported) {
+                        SecondaryButton("Practice now", { onPracticeNow(info) }, modifier = Modifier.weight(1f).height(56.dp))
+                        Spacer(Modifier.width(Spacing.sm + 4.dp))
+                    }
+                    PrimaryButton(if (info.liveSupported) "Start learning" else "Watch the lesson", { onStartLearning(info) }, icon = YsIcons.Play, modifier = Modifier.weight(1.3f))
                 }
             }
         }
@@ -192,8 +206,11 @@ private fun Hero(info: AsanaInfo, accent: PoseAccent, scrollPx: Int) {
                 style = MaterialTheme.typography.labelSmall, color = accent.onBgMuted,
             )
             Spacer(Modifier.height(6.dp))
-            Text(info.name, style = MaterialTheme.typography.displayMedium, color = accent.onBg)
-            Text(info.sanskrit, style = MaterialTheme.typography.titleMedium, color = accent.onBgMuted)
+            Text(
+                info.name, color = accent.onBg, maxLines = 2,
+                style = if (info.name.length > 11) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displayMedium,
+            )
+            Text(info.englishName, style = MaterialTheme.typography.titleMedium, color = accent.onBgMuted)
         }
     }
 }

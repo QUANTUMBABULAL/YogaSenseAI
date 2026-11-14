@@ -11,7 +11,7 @@ data class GuidedConfig(
     val demoMaxMs: Long = 90_000,
     val prepMs: Long = 5_000,
     val holdTargetMs: Long = 10_000,
-    /** Pose lost longer than this resets the hold (same 1.5 s dropout rule as HoldTracker). */
+    /** Pose lost longer than this PAUSES the hold: the timer keeps its value and resumes when the pose is back. */
     val lossResetMs: Long = 1_500,
     /** A single frame gap above this is not counted as hold time (e.g. after a stall). */
     val maxFrameGapMs: Long = 500,
@@ -34,7 +34,10 @@ data class GuidedState(
     val stage: GuidedStage = GuidedStage.INTRO,
     val index: Int = 0,
     val stageElapsedMs: Long = 0,
-    /** Stable hold of the CURRENT pose (only frames where the expected pose's hold is counting). */
+    /**
+     * Stable hold accumulated for the CURRENT pose (only frames where the expected pose's hold is
+     * counting). Losing the pose pauses it; it is cleared only when the session moves to another pose.
+     */
     val holdMs: Long = 0,
     val demoEnded: Boolean = false,
     val pausedBy: PauseReason? = null,
@@ -190,8 +193,11 @@ class GuidedSessionMachine(plan: List<Asana>, val config: GuidedConfig = GuidedC
 
     private fun loseHold(): List<GuidedEffect> {
         lostSinceMs = null; lastHoldFrameMs = null
-        state = state.copy(stage = GuidedStage.WAITING_FOR_POSE, holdMs = 0, epoch = state.epoch + 1) // keeps the detection timer running
-        return listOf(GuidedEffect.Speak("lost", "Pose lost. Move back into ${name(state.current!!)}.", true))
+        // The hold is paused, not reset: holdMs is kept and continues when the pose is detected again.
+        state = state.copy(stage = GuidedStage.WAITING_FOR_POSE, epoch = state.epoch + 1) // keeps the detection timer running
+        val held = state.holdMs / 1000
+        val paused = if (held > 0) " Your timer is paused at $held second${if (held == 1L) "" else "s"}." else ""
+        return listOf(GuidedEffect.Speak("lost", "Pose lost.$paused Move back into ${name(state.current!!)}.", true))
     }
 
     private fun maybeEndDemo(): List<GuidedEffect> {
@@ -237,7 +243,9 @@ class GuidedSessionMachine(plan: List<Asana>, val config: GuidedConfig = GuidedC
     private fun enter(stage: GuidedStage, speakEntry: Boolean = true): List<GuidedEffect> {
         lostSinceMs = null; lastHoldFrameMs = null
         state = state.copy(stage = stage, stageElapsedMs = 0, demoEnded = false, epoch = state.epoch + 1,
-            holdMs = if (stage == GuidedStage.RECOVERY) state.holdMs else 0) // recovery shows the hold just achieved
+            // Hold progress belongs to the pose: it survives losing and re-finding the pose (and a retry),
+            // and is cleared only when a new pose starts. Recovery still shows the hold just achieved.
+            holdMs = if (stage == GuidedStage.DEMONSTRATION) 0 else state.holdMs)
         if (!speakEntry) return emptyList()
         val a = state.current?.let(name).orEmpty()
         val n = state.index + 1; val total = state.plan.size
@@ -245,7 +253,11 @@ class GuidedSessionMachine(plan: List<Asana>, val config: GuidedConfig = GuidedC
             GuidedStage.DEMONSTRATION -> "Pose $n of $total: $a. Watch the demonstration."
             GuidedStage.PREPARATION_COUNTDOWN -> "Get ready. 5"
             GuidedStage.WAITING_FOR_POSE -> "Move into $a."
-            GuidedStage.HOLDING -> "Pose detected. Hold for ${config.holdTargetMs / 1000} seconds."
+            GuidedStage.HOLDING -> {
+                val left = ((config.holdTargetMs - state.holdMs).coerceAtLeast(0) + 999) / 1000
+                if (state.holdMs > 0) "Pose detected. Hold for $left more second${if (left == 1L) "" else "s"}."
+                else "Pose detected. Hold for ${config.holdTargetMs / 1000} seconds."
+            }
             GuidedStage.DETECTION_TIMEOUT -> "I couldn't detect $a. Try again, or it will be skipped."
             else -> return emptyList()
         }

@@ -11,6 +11,7 @@ import com.chinmai.yogasense.asana.Asana
  *  - Vrukshasana-Tree pose.mp4        1280×720, 10.03 s — lifts foot to the standing leg, hands at chest
  *  - Warrior pose-Veerabhadrasana.mp4 1280×720, 10.03 s — wide stance, front knee bent, arms out (Warrior II)
  *  - Trikonasana.mp4                  1280×720, 10.03 s — wide stance moving into the side bend
+ *  - bhujangasana.mp4 / chakrasana.mp4 — lesson-only poses (no live recognition)
  * Chair (Utkatasana) has no video and keeps the labelled illustration fallback.
  */
 object AsanaVideoAssets {
@@ -21,13 +22,12 @@ object AsanaVideoAssets {
         Asana.TREE to "Vrukshasana-Tree pose.mp4",
         Asana.WARRIOR_II to "Warrior pose-Veerabhadrasana.mp4",
         Asana.TRIANGLE to "Trikonasana.mp4",
+        Asana.BHUJANGASANA to "bhujangasana.mp4",
+        Asana.CHAKRASANA to "chakrasana.mp4",
     )
 
-    /** Bundled clips of poses the app does not support (no catalogue asana, recognition or assessment). */
-    val UNMAPPED: Map<String, String> = mapOf(
-        "bhujangasana.mp4" to "Cobra Pose (Bhujangasana) — not a supported asana",
-        "chakrasana.mp4" to "Wheel Pose (Chakrasana) — not a supported asana",
-    )
+    /** Bundled clips with no catalogue asana (none at present). */
+    val UNMAPPED: Map<String, String> = emptyMap()
 
     /** Asset paths to try, in order: the catalogue's canonical name, then the provided file. */
     fun candidates(info: AsanaInfo): List<String> =

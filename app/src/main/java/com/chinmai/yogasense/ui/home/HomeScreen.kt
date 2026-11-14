@@ -109,10 +109,10 @@ fun HomeScreen(
         }
         item(key = "today") {
             // Personalised session plan when available (Phase 7B.5 recommender), otherwise all poses.
-            val plan = (suggestion?.sessionPlan?.poses ?: explore).map { it.asana }
+            val plan = (suggestion?.sessionPlan?.poses ?: explore).filter { it.liveSupported }.map { it.asana }
             TodayCard(featured, { onStartPractice(featured.id) }, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter), onGuided = { onStartGuided(plan) }, guidedCount = plan.size)
         }
-        if (suggestion != null && personalisation != null && (suggestion.sessionPlan != null || personalisation.p.bodyAreas.isNotEmpty() || personalisation.p.goals.isNotEmpty())) {
+        if (suggestion != null && personalisation != null) {
             item(key = "foryou") { ForYouCard(suggestion, personalisation, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
         }
         item { CheckIn(Modifier.padding(horizontal = Spacing.gutter), wellness, onCheckIn) }
@@ -166,19 +166,19 @@ private fun ForYouCard(
         Text("FOR YOU", style = MaterialTheme.typography.labelSmall, color = InkMuted)
         Spacer(Modifier.height(Spacing.xs))
         val plan = s.sessionPlan
-        if (plan != null) {
-            Text("A ${plan.minutes}-minute session idea", style = MaterialTheme.typography.titleMedium, color = Ink)
-            Spacer(Modifier.height(Spacing.sm))
-            plan.poses.forEach { a ->
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(a.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(SurfaceMuted), contentAlignment = Alignment.Center) { AsanaFigure(a.figure, Modifier.size(28.dp)) }
-                    Spacer(Modifier.width(Spacing.md - 4.dp))
-                    Text(a.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
-                    Text(a.holdLabel, style = MaterialTheme.typography.bodySmall, color = InkMuted)
-                }
+        Text(if (plan != null) "A ${plan.minutes}-minute session idea" else "Suggested for you", style = MaterialTheme.typography.titleMedium, color = Ink)
+        Spacer(Modifier.height(Spacing.sm))
+        // With a preferred length: the camera-guided plan, then the lesson-only poses.
+        // Without one: every pose in the suggested order. Either way the list is never empty.
+        val poses = if (plan != null) plan.poses + s.ordered.filter { !it.liveSupported } else s.ordered
+        poses.forEach { a ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(a.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(36.dp).clip(CircleShape).background(SurfaceMuted), contentAlignment = Alignment.Center) { AsanaFigure(a.figure, Modifier.size(28.dp)) }
+                Spacer(Modifier.width(Spacing.md - 4.dp))
+                Text(a.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                if (!a.liveSupported) { Icon(YsIcons.Play, null, tint = InkMuted, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)) }
+                Text(a.holdLabel, style = MaterialTheme.typography.bodySmall, color = InkMuted)
             }
-        } else {
-            Text("Suggested for you", style = MaterialTheme.typography.titleMedium, color = Ink)
         }
         if (s.reasons.isNotEmpty()) {
             Spacer(Modifier.height(Spacing.xs))
@@ -229,8 +229,11 @@ private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Uni
                 Text("TODAY'S PRACTICE", style = MaterialTheme.typography.labelSmall, color = Midnight)
             }
             Spacer(Modifier.height(Spacing.md))
-            Text(a.name, style = MaterialTheme.typography.displaySmall, color = WarmWhite, modifier = Modifier.fillMaxWidth(0.6f))
-            Text(a.sanskrit, style = MaterialTheme.typography.bodyLarge, color = TextMuted)
+            Text(
+                a.name, color = WarmWhite, maxLines = 2, modifier = Modifier.fillMaxWidth(0.6f),
+                style = if (a.name.length > 11) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.displaySmall,
+            )
+            Text(a.englishName, style = MaterialTheme.typography.bodyLarge, color = TextMuted)
             Spacer(Modifier.height(Spacing.md))
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 DarkPill(a.difficulty.label)

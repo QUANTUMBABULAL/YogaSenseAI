@@ -146,10 +146,12 @@ class PracticeRecommenderTest {
     @Test fun experienceOrdersButNeverRemovesPoses() {
         val b = PracticeRecommender.suggest(ExperienceLevel.BEGINNER, null, null, 0)
         assertEquals(AsanaCatalog.all.size, b.ordered.size)
-        assertEquals(Difficulty.INTERMEDIATE, b.ordered.last().difficulty)
+        assertTrue(b.ordered.last().difficulty != Difficulty.BEGINNER)
+        assertTrue(b.featured.liveSupported) // today's practice is always a pose the camera can follow
         assertEquals(Difficulty.BEGINNER, b.featured.difficulty)
         val adv = PracticeRecommender.suggest(ExperienceLevel.ADVANCED, null, null, 0)
-        assertEquals(Asana.TRIANGLE, adv.ordered.first().asana)
+        assertEquals(Asana.TRIANGLE, adv.featured.asana)
+        assertTrue(adv.ordered.first().difficulty != Difficulty.BEGINNER)
         assertNull(b.sessionPlan)
     }
 

@@ -90,17 +90,36 @@ class GuidedSessionMachineTest {
         assertTrue(d.spoken().any { it.startsWith("Great work! You completed ") })
     }
 
-    @Test fun briefLossPausesAndLongLossResets() {
+    @Test fun losingThePosePausesTheHoldAndItResumesFromTheSameTime() {
         val d = Driver(); d.toWaiting()
         d.frames(6_000, Asana.TADASANA, true)
         val held = d.m.state.holdMs
         d.frames(1_200, Asana.TADASANA, false)                      // brief loss (< 1.5 s)
         assertEquals(GuidedStage.HOLDING, d.stage); assertEquals(held, d.m.state.holdMs)
         d.frames(1_000, Asana.TADASANA, true)
-        assertTrue(d.m.state.holdMs > held)
-        d.frames(2_000, null, false)                                // long loss
-        assertEquals(GuidedStage.WAITING_FOR_POSE, d.stage); assertEquals(0L, d.m.state.holdMs)
+        val beforeLoss = d.m.state.holdMs
+        assertTrue(beforeLoss > held)
+        d.frames(4_000, null, false)                                // long loss: paused, never reset
+        assertEquals(GuidedStage.WAITING_FOR_POSE, d.stage); assertEquals(beforeLoss, d.m.state.holdMs)
+        assertTrue(d.spoken().any { it.contains("Your timer is paused at") })
         assertTrue(d.effects.none { it is GuidedEffect.PoseFinished })
+        // Back in the pose: counting continues from where it stopped and only the remainder is needed.
+        d.frames(450, Asana.TADASANA, true)
+        assertEquals(GuidedStage.HOLDING, d.stage)
+        assertTrue(d.m.state.holdMs in beforeLoss..beforeLoss + 450)
+        assertTrue(d.spoken().any { it.contains("more second") })
+        val startOfResume = d.now
+        d.completeCurrent()
+        assertEquals(GuidedStage.RECOVERY, d.stage)
+        assertTrue(d.now - startOfResume < cfg.holdTargetMs - beforeLoss + 1_000) // far less than a full 10 s hold
+    }
+
+    @Test fun holdProgressIsClearedForTheNextPose() {
+        val d = Driver(); d.toWaiting()
+        d.completeCurrent()
+        d.tick(cfg.recoveryMs)
+        assertEquals(GuidedStage.DEMONSTRATION, d.stage); assertEquals(Asana.TREE, d.m.state.current)
+        assertEquals(0L, d.m.state.holdMs)
     }
 
     @Test fun recoveryLastsTwentySecondsAndAdvancesToNextDemonstration() {

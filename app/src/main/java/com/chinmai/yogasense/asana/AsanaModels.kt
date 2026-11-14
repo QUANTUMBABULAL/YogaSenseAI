@@ -1,12 +1,15 @@
 package com.chinmai.yogasense.asana
 
-/** Supported asanas. [UNKNOWN] means "not recognised" and is never forced into a real pose. */
+/** Catalogue asanas (the live engine recognises the first five). [UNKNOWN] means "not recognised" and is never forced into a real pose. */
 enum class Asana(val displayName: String, val sided: Boolean) {
     TADASANA("Tadasana (Mountain)", sided = false),
     TREE("Vrksasana (Tree)", sided = true),
     WARRIOR_II("Virabhadrasana II (Warrior II)", sided = true),
     CHAIR("Utkatasana (Chair)", sided = false),
     TRIANGLE("Trikonasana (Triangle)", sided = true),
+    /** Library/lesson only: not recognised or assessed by the live engine (see AsanaInfo.liveSupported). */
+    BHUJANGASANA("Bhujangasana (Cobra)", sided = false),
+    CHAKRASANA("Chakrasana (Wheel)", sided = false),
     UNKNOWN("Not recognised", sided = false),
 }
 

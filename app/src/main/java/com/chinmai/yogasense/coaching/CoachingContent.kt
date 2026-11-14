@@ -14,23 +14,23 @@ object CoachingContent {
 
     private val scripts = mapOf(
         Asana.TADASANA to PoseScript(
-            "Mountain Pose.",
+            "Tadasana.",
             listOf("Stand tall and relax your shoulders.", "Keep your weight balanced across both feet.", "Lengthen up through the crown of your head."),
         ),
         Asana.TREE to PoseScript(
-            "Tree Pose.",
+            "Vrikshasana.",
             listOf("Focus on a steady point in front of you.", "Try to maintain your balance.", "Keep your standing leg strong and your hips level."),
         ),
         Asana.WARRIOR_II to PoseScript(
-            "Warrior Two.",
+            "Virabhadrasana Two.",
             listOf("Keep your front knee aligned with your foot.", "Extend both arms comfortably.", "Keep your torso upright between your legs."),
         ),
         Asana.CHAIR to PoseScript(
-            "Chair Pose.",
+            "Utkatasana.",
             listOf("Move your hips backwards.", "Keep your knees comfortable and aligned.", "Keep your weight in your heels."),
         ),
         Asana.TRIANGLE to PoseScript(
-            "Triangle Pose.",
+            "Trikonasana.",
             listOf("Lengthen your spine.", "Move into the side bend gently.", "Keep both legs long without locking the knees."),
         ),
     )

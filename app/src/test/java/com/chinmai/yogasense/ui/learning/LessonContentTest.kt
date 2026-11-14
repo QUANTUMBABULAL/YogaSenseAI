@@ -27,8 +27,9 @@ class LessonContentTest {
 
     @Test fun eachPoseOpensItsOwnLesson() {
         val expected = mapOf(
-            "TADASANA" to "Mountain Pose", "TREE" to "Tree Pose", "WARRIOR_II" to "Warrior II",
-            "CHAIR" to "Chair Pose", "TRIANGLE" to "Triangle Pose",
+            "TADASANA" to "Tadasana", "TREE" to "Vrikshasana", "WARRIOR_II" to "Virabhadrasana II",
+            "CHAIR" to "Utkatasana", "TRIANGLE" to "Trikonasana",
+            "BHUJANGASANA" to "Bhujangasana", "CHAKRASANA" to "Chakrasana",
         )
         expected.forEach { (id, name) ->
             val l = LessonContent.of(id)!!
@@ -37,7 +38,7 @@ class LessonContentTest {
             assertEquals(AsanaCatalog.byId(id)!!.steps, l.steps) // single source of truth
         }
         // Lessons are distinct, not one hard-coded pose.
-        assertEquals(5, expected.keys.map { LessonContent.of(it)!!.steps }.toSet().size)
+        assertEquals(7, expected.keys.map { LessonContent.of(it)!!.steps }.toSet().size)
     }
 
     @Test fun unknownIdHasNoLesson() {
