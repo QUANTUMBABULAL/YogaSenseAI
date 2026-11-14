@@ -15,6 +15,20 @@ object Routes {
     /** Optional selected asana; the plain "practice" route (Home, Progress) still matches. */
     const val PRACTICE = "practice?$ARG_ASANA={$ARG_ASANA}"
 
+    const val WELLNESS = "wellness"
+    const val CHECK_IN = "wellness/checkin"
+    const val QUESTIONNAIRE = "wellness/questionnaire/{type}"
+    const val RECORD = "wellness/record/{recordId}"
+    const val WELLNESS_HISTORY = "wellness/history"
+    const val SUPPORT = "wellness/support"
+    fun questionnaire(type: String) = "wellness/questionnaire/$type"
+    /** Record ids are UUIDs or "legacy7:<uuid>:q:<n>" — no "/" or "?", safe as a path segment. */
+    fun record(id: String) = "wellness/record/$id"
+
+    /** Optional onboarding (step = -1) or editing one answer (step = OnboardingStep ordinal). */
+    const val ONBOARDING = "onboarding?step={step}"
+    fun onboarding(step: Int = -1) = "onboarding?step=$step"
+
     fun asana(id: String) = "asana/$id"
     fun learn(id: String) = "learn/$id"
     fun practice(asanaId: String? = null) = if (asanaId == null) "practice" else "practice?$ARG_ASANA=$asanaId"

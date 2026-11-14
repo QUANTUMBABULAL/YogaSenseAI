@@ -7,7 +7,6 @@ import com.chinmai.yogasense.asana.BodySide
 import com.chinmai.yogasense.asana.Recognition
 import com.chinmai.yogasense.coaching.CoachEvent
 import com.chinmai.yogasense.coaching.CoachSettings
-import com.chinmai.yogasense.coaching.CoachSettingsStore
 import com.chinmai.yogasense.coaching.CoachingDecisionEngine
 import com.chinmai.yogasense.coaching.CoachingEventSource
 import com.chinmai.yogasense.coaching.Cue
@@ -30,6 +29,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.chinmai.yogasense.profile.CompletedPracticeSession
+import com.chinmai.yogasense.profile.PracticePreferences.coach
+import com.chinmai.yogasense.profile.PracticePreferences.visual
+import com.chinmai.yogasense.profile.PracticePreferences.with
+import com.chinmai.yogasense.profile.UserPreferences
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Session clock that excludes paused time. Pure Kotlin. */
 class SessionClock(startMs: Long) {
@@ -63,6 +69,8 @@ class AssessmentPipeline(
     private val coach: AssessmentCoach = AssessmentCoach(),
     val stats: SessionStats = SessionStats(),
 ) {
+    /** Structured correction ids + measured improvement, for the saved session record. */
+    val corrections = CorrectionLog()
     private val smoother = LandmarkSmoother()
     private var assessedPose: Pair<Asana, BodySide>? = null
     private var lastMilestone = 0
@@ -102,7 +110,13 @@ class AssessmentPipeline(
         val framingOk = framing == FramingStatus.FULL_BODY
         val before = coach.improvements.size
         val assessmentEvents = coach.update(a, st, framingOk, nowMs)
-        assessmentEvents.forEach { if (it is CoachEvent.AlignmentCorrectionRequired) stats.correction(asana, it.correction.message) }
+        assessmentEvents.forEach {
+            if (it is CoachEvent.AlignmentCorrectionRequired) {
+                stats.correction(asana, it.correction.message)
+                corrections.corrected(asana, it.correction.id, nowMs)
+            }
+            if (it is CoachEvent.AlignmentImproved) corrections.improved(it.correctionId)
+        }
         coach.improvements.drop(before).forEach { stats.improvement(asana, it) }
         events += assessmentEvents
         return Output(LiveAssessment(a, st, h, coach.currentCorrection(a, framingOk)), events)
@@ -115,23 +129,39 @@ class AssessmentPipeline(
  * Glue for one practice session: snapshot → [CoachingEventSource] + [AssessmentPipeline] →
  * [CoachingDecisionEngine] → [VoiceCoachManager]. One instance per practice screen; call
  * [release] when the screen leaves. All calls are expected on the main thread.
+ *
+ * Phase 7B: settings come from the active profile ([initialPreferences]) and every change is
+ * passed to [onPreferencesChanged] (bound to that profile's id by the caller). On [release] the
+ * session is turned into a [CompletedPracticeSession] by [SessionRecordPolicy] and handed to
+ * [onRecord] exactly once.
  */
 class PracticeSession(
     context: Context,
     private val target: Asana?,
     nowMs: Long,
+    initialPreferences: UserPreferences = UserPreferences(),
+    diagnostics: Boolean = false,
+    private val onPreferencesChanged: (UserPreferences) -> Unit = {},
+    private val onDiagnosticsChanged: (Boolean) -> Unit = {},
+    private val onRecord: (CompletedPracticeSession) -> Unit = {},
+    wallClock: () -> Long = System::currentTimeMillis,
 ) {
-    private val store = CoachSettingsStore(context)
+    private var preferences = initialPreferences
+    private val sessionId = UUID.randomUUID().toString()
+    private val startUptimeMs = nowMs
+    private val startedAtWallMs = wallClock()
+    private var endConfirmed = false
+    private val recorded = AtomicBoolean(false)
     // Hold milestones come from the stable-hold timer in AssessmentPipeline, not raw recognition.
     private val source = CoachingEventSource(milestoneEverySeconds = Int.MAX_VALUE)
     private val pipeline = AssessmentPipeline()
-    private val engine = CoachingDecisionEngine(store.loadCoach())
+    private val engine = CoachingDecisionEngine(initialPreferences.coach())
     val voice = VoiceCoachManager(context)
     private val clock = SessionClock(nowMs)
 
     private val _coach = MutableStateFlow(engine.settings)
     val coachSettings: StateFlow<CoachSettings> = _coach.asStateFlow()
-    private val _visual = MutableStateFlow(store.loadVisual())
+    private val _visual = MutableStateFlow(initialPreferences.visual(diagnostics))
     val visualSettings: StateFlow<VisualSettings> = _visual.asStateFlow()
     private val _ui = MutableStateFlow(PracticeUiState())
     val ui: StateFlow<PracticeUiState> = _ui.asStateFlow()
@@ -141,8 +171,23 @@ class PracticeSession(
         dispatch(engine.onEvent(CoachEvent.SessionStarted(target), nowMs), nowMs)
     }
 
+    /** Debug timing of [onSnapshot] (main-thread cost per pose result), for PerfLog. */
+    var snapshotCostEmaMs = 0f
+        private set
+    var snapshots = 0L
+        private set
+
     fun onSnapshot(frame: PoseFrame?, recognition: Recognition, nowMs: Long) {
         if (_ui.value.paused || _ui.value.summary != null) return
+        val t0 = System.nanoTime()
+        try { onSnapshotInternal(frame, recognition, nowMs) } finally {
+            val ms = (System.nanoTime() - t0) / 1_000_000f
+            snapshotCostEmaMs = if (snapshots == 0L) ms else snapshotCostEmaMs + 0.1f * (ms - snapshotCostEmaMs)
+            snapshots++
+        }
+    }
+
+    private fun onSnapshotInternal(frame: PoseFrame?, recognition: Recognition, nowMs: Long) {
         val framing = FramingGuidance.evaluate(frame)
         val events = source.onSnapshot(PracticeSnapshot(nowMs, framing, recognition)).toMutableList()
         val out = pipeline.process(frame, recognition, framing, nowMs)
@@ -183,7 +228,11 @@ class PracticeSession(
         _ui.update { it.copy(paused = true, elapsedMs = duration, summary = pipeline.summary(duration)) }
     }
 
+    /** "Done" on the summary: the user confirmed ending the session. */
+    fun confirmEnd() { if (_ui.value.summary != null) endConfirmed = true }
+
     fun continueAfterSummary(nowMs: Long) {
+        endConfirmed = false
         _ui.update { it.copy(summary = null) }
         resume(nowMs)
     }
@@ -193,15 +242,34 @@ class PracticeSession(
         _coach.value = s
         voice.setSpeechRate(s.speechRate)
         if (s.mode == VoiceMode.OFF) voice.stop()
-        store.save(s, _visual.value)
+        preferences = preferences.with(s, _visual.value)
+        onPreferencesChanged(preferences)
     }
 
     fun updateVisual(v: VisualSettings) {
+        val old = _visual.value
         _visual.value = v
-        store.save(_coach.value, v)
+        if (v.diagnostics != old.diagnostics) onDiagnosticsChanged(v.diagnostics)
+        preferences = preferences.with(_coach.value, v)
+        if (preferences != preferences.with(_coach.value, old)) onPreferencesChanged(preferences)
     }
 
-    fun release() = voice.release()
+    /**
+     * The session record that [release] would save now (null = not saved, see [SessionRecordPolicy]).
+     * Uses the confirmed summary if the user ended the session, otherwise measures up to [nowMs].
+     */
+    fun buildRecord(nowMs: Long): CompletedPracticeSession? {
+        val confirmed = _ui.value.summary?.takeIf { endConfirmed }
+        val summary = confirmed ?: run { clock.pause(nowMs); pipeline.summary(clock.elapsedMs(nowMs)) }
+        val exit = if (confirmed != null) SessionExit.ENDED_BY_USER else SessionExit.LEFT
+        return SessionRecordPolicy.build(sessionId, startedAtWallMs, startUptimeMs, nowMs, exit, summary, pipeline.corrections.snapshot())
+    }
+
+    /** Leaves the session: saves it once (repeated calls never record twice) and frees TextToSpeech. */
+    fun release(nowMs: Long) {
+        if (recorded.compareAndSet(false, true)) buildRecord(nowMs)?.let(onRecord)
+        voice.release()
+    }
 
     private fun dispatch(cues: List<Cue>, nowMs: Long) {
         for (c in cues) {

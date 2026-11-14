@@ -29,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -82,7 +85,12 @@ import kotlinx.coroutines.flow.combine
  * @param targetAsana selected asana for coaching content and reference; recognition still detects all poses.
  */
 @Composable
-fun LiveTrackingScreen(onClose: (() -> Unit)? = null, targetName: String? = null, targetAsana: Asana? = null) {
+fun LiveTrackingScreen(
+    onClose: (() -> Unit)? = null,
+    targetName: String? = null,
+    targetAsana: Asana? = null,
+    profile: PracticeProfileBinding = PracticeProfileBinding(),
+) {
     val context = LocalContext.current
     fun granted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
@@ -105,7 +113,7 @@ fun LiveTrackingScreen(onClose: (() -> Unit)? = null, targetName: String? = null
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
-            PracticeContent(onClose, targetName, targetAsana)
+            PracticeContent(onClose, targetName, targetAsana, profile)
         } else {
             val activity = context as? Activity
             val permanentlyDenied = askedOnce && activity != null &&
@@ -131,16 +139,18 @@ fun LiveTrackingScreen(onClose: (() -> Unit)? = null, targetName: String? = null
 }
 
 @Composable
-private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetAsana: Asana?) {
+private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetAsana: Asana?, profile: PracticeProfileBinding) {
     val context = LocalContext.current
     var lensFacing by rememberSaveable { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var cameraStatus by remember { mutableStateOf<CameraStatus>(CameraStatus.Starting) }
     var engine by remember { mutableStateOf<PoseLandmarkerEngine?>(null) }
 
+    // Phase 7B.5: per-frame values are held as State objects and read only where needed
+    // (skeleton: draw phase; strip: its own scope; everything else via derivedStateOf), so a new pose
+    // result no longer recomposes the whole practice screen.
     val framesFlow: StateFlow<PoseFrame?> = engine?.frames ?: remember { MutableStateFlow(null) }
-    val frame by framesFlow.collectAsStateWithLifecycle()
+    val frameState = framesFlow.collectAsStateWithLifecycle()
     val statsFlow: StateFlow<InferenceStats> = engine?.stats ?: remember { MutableStateFlow(InferenceStats()) }
-    val stats by statsFlow.collectAsStateWithLifecycle()
 
     // One recognizer per camera session: a new engine (lens flip, rotation, restart) => fresh state.
     val debugLogging = remember { (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
@@ -152,12 +162,20 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
         if (controller != null && e != null) controller.run(e.frames)
     }
     val recFlow: StateFlow<LiveRecognitionState> = controller?.state ?: remember { MutableStateFlow(LiveRecognitionState()) }
-    val recState by recFlow.collectAsStateWithLifecycle()
+    val recStateHolder = recFlow.collectAsStateWithLifecycle()
 
     // One coaching session per practice screen; TextToSpeech is created once and released on exit.
-    val session = remember { PracticeSession(context, targetAsana, SystemClock.uptimeMillis()) }
-    DisposableEffect(session) { onDispose { session.release() } }
-    val ui by session.ui.collectAsStateWithLifecycle()
+    // Bound to the profile active when practice started: its settings, and its id for the saved record.
+    val session = remember {
+        PracticeSession(
+            context, targetAsana, SystemClock.uptimeMillis(),
+            initialPreferences = profile.preferences, diagnostics = profile.diagnostics,
+            onPreferencesChanged = profile.savePreferences, onDiagnosticsChanged = profile.saveDiagnostics,
+            onRecord = profile.record,
+        )
+    }
+    DisposableEffect(session) { onDispose { session.release(SystemClock.uptimeMillis()) } }
+    val uiState = session.ui.collectAsStateWithLifecycle()
     val coach by session.coachSettings.collectAsStateWithLifecycle()
     val visual by session.visualSettings.collectAsStateWithLifecycle()
     val voice: VoiceState by session.voice.state.collectAsStateWithLifecycle()
@@ -172,9 +190,21 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
     }
     var nowMs by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
     LaunchedEffect(session) {
+        var lastPerfLog = 0L
         while (true) {
             nowMs = SystemClock.uptimeMillis()
             session.tick(nowMs)
+            if (nowMs - lastPerfLog >= 5_000) {
+                lastPerfLog = nowMs
+                val st = engine?.stats?.value
+                val rs = controller?.state?.value
+                com.chinmai.yogasense.perf.PerfLog.log {
+                    "practice inferenceFps=%.1f latencyMs=%d recognitionMs=%.2f snapshotMainMs=%.2f snapshots=%d pose=%s".format(
+                        st?.inferenceFps ?: 0f, st?.latencyMs ?: 0L, rs?.recognitionMs ?: 0f, session.snapshotCostEmaMs, session.snapshots,
+                        engine?.frames?.value?.hasPose == true,
+                    )
+                }
+            }
             delay(1000)
         }
     }
@@ -190,6 +220,24 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
     val targetInfo = targetAsana?.let { AsanaCatalog.of(it) }
     val currentClose by rememberUpdatedState(onClose)
 
+    // Values the screen layout needs, recomputed per frame but only invalidating when they change.
+    val cameraNow by rememberUpdatedState(cameraStatus)
+    val recognitionLabel by remember { derivedStateOf(structuralEqualityPolicy()) { PracticeGuidance.recognitionLabel(recStateHolder.value.recognition) } }
+    val recognised by remember { derivedStateOf { recStateHolder.value.recognition.isStable } }
+    val paused by remember { derivedStateOf { uiState.value.paused } }
+    val elapsedMs by remember { derivedStateOf { uiState.value.elapsedMs / 1000 * 1000 } }
+    val summary by remember { derivedStateOf(referentialEqualityPolicy()) { uiState.value.summary } }
+    val guidance by remember {
+        derivedStateOf(structuralEqualityPolicy()) {
+            val f = frameState.value
+            val ui = uiState.value
+            PracticeGuidance.of(cameraNow, f?.hasPose == true, FramingGuidance.evaluate(f), recStateHolder.value.recognition, ui.live, ui.paused)
+        }
+    }
+    val spoken by remember {
+        derivedStateOf(structuralEqualityPolicy()) { uiState.value.let { u -> u.lastCue?.takeIf { nowMs - u.lastCueAtMs < 6_000 }?.text } }
+    }
+
     // The camera surface takes all space between the top HUD and the bottom controls. FIT_CENTER
     // (4:3) inside that area shows the whole field of view and keeps every overlay off the body,
     // on any portrait aspect ratio. Preview and skeleton share the same box, so mapping stays exact.
@@ -198,8 +246,8 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
             TopHud(
                 targetName = targetName,
                 camera = cameraStatus,
-                recognitionLabel = PracticeGuidance.recognitionLabel(recState.recognition),
-                recognised = recState.recognition.isStable,
+                recognitionLabel = recognitionLabel,
+                recognised = recognised,
                 voiceMode = coach.mode,
                 voiceStatus = voice.status,
                 speaking = voice.speaking,
@@ -219,35 +267,33 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
             )
             if (visual.liveSkeleton) {
                 SkeletonOverlay(
-                    frame = frame,
+                    frame = { frameState.value },
                     mirror = lensFacing == CameraSelector.LENS_FACING_FRONT,
                     highlightWeak = visual.correctionHighlights,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
             // Developer diagnostics may overlap the image; they are off by default.
-            if (visual.diagnostics) DiagnosticsPanel(cameraStatus, stats, frame, recState, Modifier.align(Alignment.TopStart))
+            if (visual.diagnostics) {
+                val stats by statsFlow.collectAsStateWithLifecycle()
+                DiagnosticsPanel(cameraStatus, stats, frameState.value, recStateHolder.value, Modifier.align(Alignment.TopStart))
+            }
         }
 
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val guidance = PracticeGuidance.of(
-                cameraStatus, frame?.hasPose == true, FramingGuidance.evaluate(frame),
-                recState.recognition, ui.live, ui.paused,
-            )
-            if (recState.recognition.isStable && !ui.paused) AssessmentStrip(ui.live)
-            val spoken = ui.lastCue?.takeIf { nowMs - ui.lastCueAtMs < 6_000 }?.text
+            if (recognised && !paused) LiveAssessmentStrip { uiState.value.live }
             GuidancePanel(
                 guidance,
                 PracticeGuidance.caption(spoken, guidance.text),
                 reference = targetInfo?.takeIf { visual.referenceFigure },
             )
             PracticeControls(
-                elapsedMs = ui.elapsedMs,
-                paused = ui.paused,
-                onPauseToggle = { val t = SystemClock.uptimeMillis(); if (ui.paused) session.resume(t) else session.pause(t) },
+                elapsedMs = elapsedMs,
+                paused = paused,
+                onPauseToggle = { val t = SystemClock.uptimeMillis(); if (uiState.value.paused) session.resume(t) else session.pause(t) },
                 onVoice = { sheet = PracticeSheet.Voice },
                 onVisual = { sheet = PracticeSheet.Visual },
                 onEnd = { session.end(SystemClock.uptimeMillis()) },
@@ -261,10 +307,10 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
             onCoach = session::updateCoach, onVisual = session::updateVisual, onDismiss = { sheet = null },
         )
     }
-    ui.summary?.let { summary ->
+    summary?.let { sm ->
         SessionSummaryDialog(
-            summary,
-            onDone = { currentClose?.invoke() ?: session.continueAfterSummary(SystemClock.uptimeMillis()) },
+            sm,
+            onDone = { session.confirmEnd(); currentClose?.invoke() ?: session.continueAfterSummary(SystemClock.uptimeMillis()) },
             onContinue = { session.continueAfterSummary(SystemClock.uptimeMillis()) },
         )
     }
@@ -302,3 +348,20 @@ private fun PermissionState(permanentlyDenied: Boolean, onRequest: () -> Unit, o
     }
 }
 
+/** Reads the live assessment in its own scope, so only the strip recomposes on each pose result. */
+@Composable
+private fun LiveAssessmentStrip(live: () -> com.chinmai.yogasense.coaching.assessment.LiveAssessment?) {
+    AssessmentStrip(live())
+}
+
+/**
+ * What practice needs from the active profile. All callbacks are already bound to that profile's id
+ * by the caller, so a session can only read and write its own profile's data.
+ */
+data class PracticeProfileBinding(
+    val preferences: com.chinmai.yogasense.profile.UserPreferences = com.chinmai.yogasense.profile.UserPreferences(),
+    val diagnostics: Boolean = false,
+    val savePreferences: (com.chinmai.yogasense.profile.UserPreferences) -> Unit = {},
+    val saveDiagnostics: (Boolean) -> Unit = {},
+    val record: (com.chinmai.yogasense.profile.CompletedPracticeSession) -> Unit = {},
+)

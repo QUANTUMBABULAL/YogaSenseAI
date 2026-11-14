@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and lower. Wellness data (mood, stress, sleep, questionnaires) never leaves the phone. -->
+<!-- Android 11 and lower. Profile, practice and wellness data (yogasense.db, legacy wellness.db) never leave the phone. -->
 <full-backup-content>
     <exclude domain="database" path="wellness.db" />
     <exclude domain="database" path="wellness.db-journal" />
+    <exclude domain="database" path="yogasense.db" />
+    <exclude domain="database" path="yogasense.db-wal" />
+    <exclude domain="database" path="yogasense.db-shm" />
+    <exclude domain="database" path="yogasense.db-journal" />
+    <exclude domain="sharedpref" path="profile_session.xml" />
 </full-backup-content>

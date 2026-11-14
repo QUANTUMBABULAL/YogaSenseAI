@@ -1,0 +1,5 @@
+# App baseline profile (Phase 7B.5). Library profiles (Compose, Navigation, Room...) already ship in their AARs
+# and are merged by AGP; this adds the app's own code so release/benchmark installs AOT-compile it
+# (ProfileInstaller applies it on sideloaded installs). Debuggable builds ignore profiles.
+HSPLcom/chinmai/yogasense/**->**(**)**
+Lcom/chinmai/yogasense/**;

@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.chinmai.yogasense.data.WellnessGraph
+import com.chinmai.yogasense.app.LocalProfileSession
 import com.chinmai.yogasense.ui.components.CardStyle
 import com.chinmai.yogasense.ui.components.EmptyState
 import com.chinmai.yogasense.ui.components.ListRow
@@ -53,10 +53,11 @@ fun WellnessOverviewScreen(
     onQuestionnaire: (QuestionnaireType) -> Unit,
     onHistory: () -> Unit,
     onSupport: () -> Unit,
-    onRecord: (Long) -> Unit,
+    onRecord: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val vm: WellnessViewModel = viewModel { WellnessViewModel(WellnessGraph.repository(context.applicationContext)) }
+    val wellnessRepo = LocalProfileSession.current.wellness
+    val vm: WellnessViewModel = viewModel { WellnessViewModel(wellnessRepo) }
     val s by vm.state.collectAsStateWithLifecycle()
 
     LazyColumn(
@@ -172,7 +173,7 @@ private fun QuestionnaireCard(
     last: QuestionnaireRecord?,
     history: List<QuestionnaireRecord>,
     onStart: (QuestionnaireType) -> Unit,
-    onRecord: (Long) -> Unit,
+    onRecord: (String) -> Unit,
 ) {
     val q = Questionnaires.of(type)
     val due = WellnessInsights.isQuestionnaireDue(type, history, System.currentTimeMillis())

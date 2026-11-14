@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -26,6 +27,19 @@ android {
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
+        // Local performance testing only: release code (R8, not debuggable) signed with the debug key,
+        // so it installs over the debug app on a test phone without losing data. Not for distribution.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isProfileable = true
+        }
+    }
+    testOptions {
+        // Room's Android builder touches a Context; JVM Room tests pass a stub Context.
+        unitTests.isReturnDefaultValues = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -34,6 +48,10 @@ android {
     androidResources {
         // .task model must stay uncompressed so MediaPipe can memory-map it.
         noCompress += "task"
+    }
+    sourceSets {
+        // Exported Room schemas are packaged into androidTest for MigrationTestHelper.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
     buildFeatures {
         compose = true
@@ -58,11 +76,22 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui.compose)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    androidTestImplementation(libs.androidx.room.testing)
     testImplementation(libs.junit)
+    // JVM-only SQLite (same version line as Room's androidx.sqlite) so Room DAO/migration tests run without a device.
+    testImplementation(libs.androidx.sqlite.bundled.jvm)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }

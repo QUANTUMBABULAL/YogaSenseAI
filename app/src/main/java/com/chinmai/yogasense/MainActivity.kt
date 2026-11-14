@@ -12,6 +12,8 @@ class MainActivity : ComponentActivity() {
         // Bar icon colour is set per destination (SystemBarIcons): dark on light screens, light in practice.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        com.chinmai.yogasense.perf.PerfLog.init(this)
+        com.chinmai.yogasense.perf.PerfLog.mark("activity onCreate")
         setContent {
             YogaSenseAITheme {
                 YogaSenseApp()

@@ -20,7 +20,7 @@ interface WellnessRepository {
 
     suspend fun upsertCheckIn(checkIn: DailyCheckIn)
     suspend fun deleteCheckIn(epochDay: Long)
-    suspend fun addQuestionnaire(record: QuestionnaireRecord): Long
+    suspend fun addQuestionnaire(record: QuestionnaireRecord): String
     suspend fun setConsent(consent: WellnessConsent)
     suspend fun deleteAll()
 }

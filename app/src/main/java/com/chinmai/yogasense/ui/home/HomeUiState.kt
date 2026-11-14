@@ -6,6 +6,7 @@ import com.chinmai.yogasense.catalog.AsanaCatalog
 import com.chinmai.yogasense.catalog.AsanaInfo
 import com.chinmai.yogasense.data.NoPracticeHistory
 import com.chinmai.yogasense.data.PracticeHistoryRepository
+import com.chinmai.yogasense.data.PracticeOverview
 import com.chinmai.yogasense.data.SessionRecord
 import com.chinmai.yogasense.data.WeeklySummary
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,8 +19,8 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Home screen state. [weekly] and [recent] come only from real recorded data
- * (none exists until session recording ships), so the UI shows empty states rather than numbers.
+ * Home screen state. [weekly], [recent] and [overview] come only from the active profile's real
+ * recorded sessions; with no history the UI shows empty states rather than numbers.
  */
 data class HomeUiState(
     val greeting: String,
@@ -30,6 +31,7 @@ data class HomeUiState(
     val explore: List<AsanaInfo>,
     val weekly: WeeklySummary? = null,
     val recent: List<SessionRecord> = emptyList(),
+    val overview: PracticeOverview = PracticeOverview.EMPTY,
 )
 
 /** Pure factory; no Android dependencies so it is unit-testable. */
@@ -81,7 +83,8 @@ class HomeViewModel(
     private val initial = HomeStateFactory.create(clock())
 
     val state: StateFlow<HomeUiState> =
-        combine(repository.weeklySummary(), repository.recentSessions()) { weekly, recent ->
-            initial.copy(weekly = weekly, recent = recent)
+        // recentSessions() is not shown on Home any more (overview.recent replaces it), so it isn't subscribed.
+        combine(repository.weeklySummary(), repository.overview()) { weekly, overview ->
+            initial.copy(weekly = weekly, overview = overview)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 }

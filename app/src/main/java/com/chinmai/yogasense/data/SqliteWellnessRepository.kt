@@ -113,7 +113,7 @@ class SqliteWellnessRepository(private val database: WellnessDatabase) : Wellnes
                 buildList {
                     while (c.moveToNext()) add(
                         QuestionnaireRecord(
-                            id = c.getLong(0),
+                            id = c.getLong(0).toString(),
                             type = QuestionnaireType.valueOf(c.getString(1)),
                             completedAtMillis = c.getLong(2),
                             answers = c.getString(3).split(',').filter { it.isNotEmpty() }.map { it.toInt() },
@@ -154,7 +154,7 @@ class SqliteWellnessRepository(private val database: WellnessDatabase) : Wellnes
         reload()
     }
 
-    override suspend fun addQuestionnaire(record: QuestionnaireRecord): Long {
+    override suspend fun addQuestionnaire(record: QuestionnaireRecord): String {
         requireConsent()
         val id = withContext(io) {
             mutex.withLock {
@@ -171,7 +171,7 @@ class SqliteWellnessRepository(private val database: WellnessDatabase) : Wellnes
             }
         }
         reload()
-        return id
+        return id.toString()
     }
 
     override suspend fun setConsent(consent: WellnessConsent) {
@@ -201,9 +201,8 @@ class SqliteWellnessRepository(private val database: WellnessDatabase) : Wellnes
     }
 }
 
-/** App-wide single instance (one database connection). */
-object WellnessGraph {
-    @Volatile private var repo: WellnessRepository? = null
-    fun repository(context: Context): WellnessRepository =
-        repo ?: synchronized(this) { repo ?: SqliteWellnessRepository(WellnessDatabase(context)).also { repo = it } }
-}
+/*
+ * Phase 7B: the app no longer opens this repository. wellness.db is read once, read-only, by
+ * SqliteLegacyWellnessSource for the import into Room (LegacyWellnessMigration.kt). The class is kept
+ * for its instrumented contract test and as the reference for the legacy schema.
+ */

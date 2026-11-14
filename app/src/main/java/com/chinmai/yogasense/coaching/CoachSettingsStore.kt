@@ -38,22 +38,33 @@ object SettingsCodec {
     }
 }
 
-/** Local persistence (SharedPreferences; no extra dependency). */
-class CoachSettingsStore(context: Context) {
+/**
+ * Phase 7B: practice settings are stored per profile in Room (user_preferences). The old
+ * device-wide SharedPreferences file `practice_settings` is now READ-ONLY: it is imported once
+ * into the first profile and kept untouched as a fallback (never written, never deleted here).
+ */
+object LegacySettingsImport {
+    /** Keys written by the Phase 5.2 CoachSettingsStore. */
+    val KEYS = setOf("voice_mode", "voice_encouragement", "voice_countdown", "voice_corrections", "voice_rate", "vis_skeleton", "vis_highlights", "vis_reference", "vis_diagnostics")
+
+    /** Null when the user never saved practice settings (then profile defaults apply). */
+    fun fromMap(m: Map<String, *>): Pair<CoachSettings, VisualSettings>? =
+        if (m.keys.none { it in KEYS }) null else SettingsCodec.decodeCoach(m) to SettingsCodec.decodeVisual(m)
+}
+
+class LegacyPracticeSettings(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("practice_settings", Context.MODE_PRIVATE)
+    fun read(): Pair<CoachSettings, VisualSettings>? = LegacySettingsImport.fromMap(prefs.all)
+}
 
-    fun loadCoach(): CoachSettings = SettingsCodec.decodeCoach(prefs.all)
-    fun loadVisual(): VisualSettings = SettingsCodec.decodeVisual(prefs.all)
+/** Device-level developer toggle (not personal, not per profile). Falls back to the legacy value once. */
+class DeviceSettings(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("device_settings", Context.MODE_PRIVATE)
+    private val legacy = LegacyPracticeSettings(context)
 
-    fun save(c: CoachSettings, v: VisualSettings) {
-        val e = prefs.edit()
-        SettingsCodec.encode(c, v).forEach { (k, value) ->
-            when (value) {
-                is Boolean -> e.putBoolean(k, value)
-                is Float -> e.putFloat(k, value)
-                is String -> e.putString(k, value)
-            }
-        }
-        e.apply()
-    }
+    var diagnostics: Boolean
+        get() = if (prefs.contains(KEY)) prefs.getBoolean(KEY, false) else legacy.read()?.second?.diagnostics ?: false
+        set(v) { prefs.edit().putBoolean(KEY, v).apply() }
+
+    private companion object { const val KEY = "vis_diagnostics" }
 }

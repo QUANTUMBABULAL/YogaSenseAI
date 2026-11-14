@@ -86,10 +86,45 @@ Time budget assumes ~40 working hours across two devs. Dev A = vision pipeline, 
   (body-centre sway in torso lengths), stable-hold tracker, one-at-a-time corrections and measured
   improvement events wired into the existing coaching engine and TTS. Live HUD strip + richer session summary.
   See `PHASE6_ASSESSMENT_TEST_REPORT.md`. Real-person validation and threshold tuning still required.
+- **Phase 7 — Mental wellness companion (2026-11-14):** implemented. Wellness tab: daily check-in (mood,
+  stress, sleep duration/quality, optional reflection; one per day, editable), overview with 14-day trends and
+  weekly reflection, PHQ-9 and GAD-7 (verbatim official phqscreeners.com wording, standard 0–3 scale and
+  bands), results with neutral prior comparison, history, delete-all, PHQ-9 item 9 support (Tele-MANAS
+  14416 / 1-800-891-4416, emergency 112). Local SQLite (framework, no new dependency), consent-gated writes,
+  excluded from backup. SQLite persistence verified on the OPPO via instrumented tests; wellness UI not yet
+  visually verified on device. See `PHASE7_WELLNESS_TEST_REPORT.md`.
+- **Phase 7A — Local Room database foundation (2026-11-14):** Room 2.8.4 + KSP 2.3.13 (verified working with
+  AGP 9.5.1 built-in Kotlin). `yogasense.db` v1: profiles, preferences, practice sessions, pose results,
+  corrections, wellness check-ins/assessments/responses, consent records — all user-owned with cascading FKs,
+  exported schema in `app/schemas/`, no destructive migration fallback. `RoomProfileRepository`,
+  `RoomPracticeHistoryRepository` (existing interface) + `PracticeSessionRecorder`. Not yet wired into the UI
+  (needs an active profile, Phase 7B). Phase 7 `wellness.db` remains the live wellness store until then.
+  Instrumented Room tests written but **not yet run on a device**. See `PHASE7A_DATABASE_TEST_REPORT.md`.
+- **Phase 7B — Active profiles & local data integration (2026-11-14):** implemented; **unit-tested on the JVM
+  with real Room + SQLite, not yet run on a device or visually verified** (no device/emulator available).
+  Profile gate (create / choose / switch / delete with confirmation) with `ActiveProfileManager` (active id in
+  SharedPreferences, verified on restore); per-profile `ProfileSession` (repositories bound to the user id,
+  own ViewModelStore cleared on switch). Home/Progress read Room history (completed/all sessions, weekly
+  totals, streak, per-asana history; "Not measured" ≠ 0). Practice sessions recorded once at exit with a
+  documented completion policy. Practice preferences per profile (one-time, marker-guarded import of the old
+  SharedPreferences into the first profile; old file kept read-only). Room schema v2 (additive migration
+  1→2). Phase 7 `wellness.db` imported transactionally + verified into the first profile (or an explicitly
+  chosen profile); Wellness screens use Room only after the import is resolved; legacy file retained.
+  256/256 unit tests; instrumented tests compiled, not executed. See `PHASE7B_PROFILE_INTEGRATION_REPORT.md`.
+- **Phase 7B.5 — Performance & personalised onboarding (2026-11-14):** baseline measured on the OPPO
+  (debug cold start median 3.2 s first frame / 4.5 s to Home; main cause: debuggable, un-compiled build +
+  1.7–2.0 s first composition). Fixes: `benchmark` build type, app baseline profile, practice screen no longer
+  recomposes per pose result, shared history queries, static startup placeholder. Full-screen 9-screen
+  onboarding (required for new profiles, optional/resumable for existing ones), Room v3 (create-only
+  migration 2→3; experience and minutes reuse existing columns), recommender driving Home "For you" and an
+  editable Profile section. 277/277 unit tests; **after-measurements and on-device UI check pending** (phone
+  disconnected). See `PHASE7B5_PERFORMANCE_ONBOARDING_REPORT.md`.
+- **Next:** run the instrumented tests and a manual pass on the OPPO; then Phase 7C/7D (PIN/biometrics,
+  Keystore encryption of reflections and other sensitive columns, removal of the legacy wellness.db copy).
 - **Next (former Phase 6 note, superseded):** add licensed/self-recorded MP4s (no code change needed), practice preparation that uses
   the selected asana, then scoring/coaching/Room per the original plan.
-- **Still open from the original plan:** alignment/stability/hold/symmetry scoring, coaching + TTS, Room,
-  check-ins, PHQ-9/GAD-7, dashboard data, weekly report.
+- **Still open from the original plan (partly superseded by Phases 6–7B):** symmetry scoring,
+  weekly report, authentication (7C), encryption (7D).
 
 ## Proposed minimal package structure
 
@@ -115,6 +150,6 @@ com.chinmai.yogasense
 No DI framework; manual construction in a small `AppContainer` when needed.
 
 ## Risks to verify early
-- KSP compatibility with AGP 9.5.1 built-in Kotlin + Kotlin 2.2.10 (verify at start of Phase 6; Room needs KSP, so pin a KSP release matching the Kotlin version).
+- ~~KSP compatibility with AGP 9.5.1 built-in Kotlin~~ — resolved in Phase 7A: KSP 2.3.13 (versioning decoupled from Kotlin) builds Room 2.8.4 successfully.
 - MediaPipe `tasks-vision` compatibility with compileSdk 37 / AGP 9 packaging (verify at start of Phase 2).
 - Physical device not yet connected via ADB.

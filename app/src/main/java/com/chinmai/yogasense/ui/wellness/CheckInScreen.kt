@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.chinmai.yogasense.data.WellnessGraph
+import com.chinmai.yogasense.app.LocalProfileSession
 import com.chinmai.yogasense.ui.components.CardStyle
 import com.chinmai.yogasense.ui.components.IconBadge
 import com.chinmai.yogasense.ui.components.PrimaryButton
@@ -55,7 +55,8 @@ import com.chinmai.yogasense.wellness.WellnessDates
 @Composable
 fun CheckInScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val vm: CheckInViewModel = viewModel { CheckInViewModel(WellnessGraph.repository(context.applicationContext)) }
+    val wellnessRepo = LocalProfileSession.current.wellness
+    val vm: CheckInViewModel = viewModel { CheckInViewModel(wellnessRepo) }
     val s by vm.state.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().imePadding()) {

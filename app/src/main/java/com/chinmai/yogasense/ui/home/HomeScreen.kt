@@ -25,6 +25,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +40,7 @@ import com.chinmai.yogasense.ui.components.AsanaFigure
 import com.chinmai.yogasense.ui.components.CardStyle
 import com.chinmai.yogasense.ui.components.ComingSoonTag
 import com.chinmai.yogasense.ui.components.EmptyState
+import com.chinmai.yogasense.ui.components.PracticeFormat
 import com.chinmai.yogasense.ui.components.IconBadge
 import com.chinmai.yogasense.ui.components.PrimaryButton
 import com.chinmai.yogasense.ui.components.SectionHeader
@@ -63,29 +67,49 @@ fun HomeScreen(
     onOpenAsana: (String) -> Unit,
     onOpenExplore: () -> Unit,
     onOpenProfile: () -> Unit,
+    onCheckIn: () -> Unit = {},
+    profileName: String? = null,
+    /** Active profile's wellness store; null while the one-time wellness import is unresolved. */
+    wellness: com.chinmai.yogasense.data.WellnessRepository? = null,
+    personalisation: com.chinmai.yogasense.profile.PersonalisationView? = null,
+    onPersonalise: () -> Unit = {},
+    onDismissPersonalise: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val dayOfYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR) }
+    // Computed once per personalisation change (pure, cheap), not on every recomposition.
+    val suggestion = remember(personalisation, dayOfYear) {
+        personalisation?.let { com.chinmai.yogasense.profile.PracticeRecommender.suggest(it.experienceLevel, it.personalisation, it.preferredMinutes, dayOfYear) }
+    }
+    val featured = suggestion?.featured ?: state.featured
+    val explore = suggestion?.ordered ?: state.explore
     LazyColumn(
         Modifier.fillMaxWidth().statusBarsPadding(),
         contentPadding = PaddingValues(bottom = Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
-        item { Header(state, onOpenProfile) }
-        item { TodayCard(state.featured, onStartPractice, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
-        item { CheckIn(Modifier.padding(horizontal = Spacing.gutter)) }
+        item { Header(state, profileName, onOpenProfile) }
+        if (personalisation?.showPrompt == true) {
+            item(key = "personalise") { PersonalisePrompt(onPersonalise, onDismissPersonalise, Modifier.padding(horizontal = Spacing.gutter)) }
+        }
+        item(key = "today") { TodayCard(featured, onStartPractice, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
+        if (suggestion != null && personalisation != null && (suggestion.sessionPlan != null || personalisation.p.bodyAreas.isNotEmpty() || personalisation.p.goals.isNotEmpty())) {
+            item(key = "foryou") { ForYouCard(suggestion, personalisation, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
+        }
+        item { CheckIn(Modifier.padding(horizontal = Spacing.gutter), wellness, onCheckIn) }
         item { WeeklyOverview(state, onStartPractice, Modifier.padding(horizontal = Spacing.gutter)) }
         item {
             SectionHeader(
                 "Explore yoga", Modifier.padding(horizontal = Spacing.gutter),
-                subtitle = "Recommended poses to learn", actionLabel = "See all", onAction = onOpenExplore,
+                subtitle = if (suggestion != null) "Ordered for your level and goals" else "Recommended poses to learn", actionLabel = "See all", onAction = onOpenExplore,
             )
             Spacer(Modifier.height(Spacing.sm))
             LazyRow(
                 contentPadding = PaddingValues(horizontal = Spacing.gutter),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md - 4.dp),
             ) {
-                items(state.explore, key = { it.id }) { a ->
+                items(explore, key = { it.id }) { a ->
                     AsanaCard(a, onClick = { onOpenAsana(a.id) }, modifier = Modifier.width(164.dp))
                 }
             }
@@ -95,7 +119,68 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(state: HomeUiState, onOpenProfile: () -> Unit) {
+private fun PersonalisePrompt(onStart: () -> Unit, onDismiss: () -> Unit, modifier: Modifier) {
+    YsCard(modifier.fillMaxWidth(), style = CardStyle.Lime) {
+        Text("PERSONALISE", style = MaterialTheme.typography.labelSmall, color = Midnight)
+        Spacer(Modifier.height(Spacing.xs))
+        Text("Make YogaSenseAI yours", style = MaterialTheme.typography.titleLarge, color = Midnight)
+        Text("About 2 minutes. Every question is optional and your history stays as it is.", style = MaterialTheme.typography.bodySmall, color = Midnight)
+        Spacer(Modifier.height(Spacing.md - 4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.clip(CircleShape).background(Midnight).clickable(onClick = onStart).padding(horizontal = 18.dp, vertical = 10.dp)) {
+                Text("Start", style = MaterialTheme.typography.labelLarge, color = WarmWhite)
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            TextButton(onClick = onDismiss) { Text("Not now", style = MaterialTheme.typography.labelLarge, color = Midnight) }
+        }
+    }
+}
+
+/** General suggestions from the user's own answers — clearly labelled, never medical. */
+@Composable
+private fun ForYouCard(
+    s: com.chinmai.yogasense.profile.PracticeRecommender.Suggestion,
+    v: com.chinmai.yogasense.profile.PersonalisationView,
+    onOpen: (String) -> Unit,
+    modifier: Modifier,
+) {
+    YsCard(modifier.fillMaxWidth()) {
+        Text("FOR YOU", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+        Spacer(Modifier.height(Spacing.xs))
+        val plan = s.sessionPlan
+        if (plan != null) {
+            Text("A ${plan.minutes}-minute session idea", style = MaterialTheme.typography.titleMedium, color = Ink)
+            Spacer(Modifier.height(Spacing.sm))
+            plan.poses.forEach { a ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(a.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(SurfaceMuted), contentAlignment = Alignment.Center) { AsanaFigure(a.figure, Modifier.size(28.dp)) }
+                    Spacer(Modifier.width(Spacing.md - 4.dp))
+                    Text(a.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                    Text(a.holdLabel, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                }
+            }
+        } else {
+            Text("Suggested for you", style = MaterialTheme.typography.titleMedium, color = Ink)
+        }
+        if (s.reasons.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(s.reasons.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        }
+        val areas = v.p.bodyAreas.keys
+        if (areas.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                "Extra attention: ${areas.joinToString { it.label }}. Move gently and skip anything that causes pain.",
+                style = MaterialTheme.typography.bodySmall, color = Ink,
+            )
+        }
+        Spacer(Modifier.height(Spacing.xs))
+        Text("General wellness suggestions, not medical advice.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+    }
+}
+
+@Composable
+private fun Header(state: HomeUiState, profileName: String?, onOpenProfile: () -> Unit) {
     Column(Modifier.padding(horizontal = Spacing.gutter).padding(top = Spacing.md)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(32.dp).clip(CircleShape).background(Midnight), contentAlignment = Alignment.Center) {
@@ -106,12 +191,13 @@ private fun Header(state: HomeUiState, onOpenProfile: () -> Unit) {
             Text("AI", style = MaterialTheme.typography.titleMedium, color = Coral)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = onOpenProfile, modifier = Modifier.size(48.dp)) {
-                IconBadge(YsIcons.Profile, size = 40.dp, container = SurfaceMuted)
+                if (profileName != null) com.chinmai.yogasense.ui.profile.ProfileAvatar(profileName, size = 40)
+                else IconBadge(YsIcons.Profile, size = 40.dp, container = SurfaceMuted)
             }
         }
         Spacer(Modifier.height(Spacing.md))
         Text(state.dateLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = InkMuted)
-        Text(state.greeting, style = MaterialTheme.typography.displaySmall, color = Ink)
+        Text(if (profileName != null) "${state.greeting}, $profileName" else state.greeting, style = MaterialTheme.typography.displaySmall, color = Ink)
         Text("Move better. Feel better.", style = MaterialTheme.typography.bodyLarge, color = InkMuted)
     }
 }
@@ -155,30 +241,38 @@ private fun DarkPill(text: String, icon: ImageVector? = null) {
 }
 
 @Composable
-private fun CheckIn(modifier: Modifier) {
+private fun CheckIn(modifier: Modifier, repo: com.chinmai.yogasense.data.WellnessRepository?, onCheckIn: () -> Unit) {
+    // Today's real check-in for the active profile (nothing shown that wasn't entered).
+    val empty = androidx.compose.runtime.remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.chinmai.yogasense.wellness.DailyCheckIn>()) }
+    val all by (repo?.checkIns ?: empty).collectAsStateWithLifecycle()
+    val today = com.chinmai.yogasense.wellness.WellnessDates.epochDay(System.currentTimeMillis())
+    val t = all.firstOrNull { it.epochDay == today }
     Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionHeader("Daily check-in", Modifier.weight(1f), subtitle = "How are you today?")
-            ComingSoonTag()
-        }
+        SectionHeader(
+            "Daily check-in",
+            subtitle = when {
+                repo == null -> "Preparing your wellness data · tap for details"
+                t == null -> "How are you today? Tap to check in"
+                else -> "Checked in today · tap to edit"
+            },
+        )
         Spacer(Modifier.height(Spacing.sm + 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm + 4.dp)) {
-            CheckInTile(YsIcons.Mood, "Mood", Modifier.weight(1f))
-            CheckInTile(YsIcons.Stress, "Stress", Modifier.weight(1f))
-            CheckInTile(YsIcons.Sleep, "Sleep", Modifier.weight(1f))
+            CheckInTile(YsIcons.Mood, "Mood", t?.mood?.let { com.chinmai.yogasense.wellness.Scales.MOOD.label(it) }, onCheckIn, Modifier.weight(1f))
+            CheckInTile(YsIcons.Stress, "Stress", t?.stress?.let { com.chinmai.yogasense.wellness.Scales.STRESS.label(it) }, onCheckIn, Modifier.weight(1f))
+            CheckInTile(YsIcons.Sleep, "Sleep", t?.sleepHours?.let { com.chinmai.yogasense.ui.wellness.formatHours(it) }, onCheckIn, Modifier.weight(1f))
         }
     }
 }
 
-/** Entry point only; check-in flows arrive in a later phase, so the tile is not interactive. */
 @Composable
-private fun CheckInTile(icon: ImageVector, label: String, modifier: Modifier) {
-    YsCard(modifier, contentPadding = Spacing.md - 4.dp) {
+private fun CheckInTile(icon: ImageVector, label: String, value: String?, onClick: () -> Unit, modifier: Modifier) {
+    YsCard(modifier, contentPadding = Spacing.md - 4.dp, onClick = onClick) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            IconBadge(icon, size = 44.dp, tint = InkMuted, container = SurfaceMuted)
+            IconBadge(icon, size = 44.dp, tint = if (value == null) InkMuted else Midnight, container = if (value == null) SurfaceMuted else Lime)
             Spacer(Modifier.height(Spacing.sm))
             Text(label, style = MaterialTheme.typography.titleSmall, color = Ink)
-            Text("Not logged", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+            Text(value ?: "Not logged", style = MaterialTheme.typography.bodySmall, color = InkMuted, maxLines = 1)
         }
     }
 }
@@ -203,7 +297,7 @@ private fun WeeklyOverview(state: HomeUiState, onStart: () -> Unit, modifier: Mo
                 Spacer(Modifier.height(Spacing.md))
                 Text("No sessions recorded yet", style = MaterialTheme.typography.titleSmall, color = Ink)
                 Text(
-                    "Sessions, practice time and your streak will appear here once session recording is available.",
+                    "Finish a live practice session and your sessions, practice time and streak appear here.",
                     style = MaterialTheme.typography.bodySmall, color = InkMuted,
                 )
             }
@@ -217,11 +311,28 @@ private fun RecentActivity(state: HomeUiState, modifier: Modifier) {
         SectionHeader("Recent activity")
         Spacer(Modifier.height(Spacing.sm + 4.dp))
         YsCard(Modifier.fillMaxWidth()) {
-            if (state.recent.isEmpty()) {
-                EmptyState(YsIcons.Calendar, "No activity yet", "Your completed practice sessions will be listed here.")
+            val o = state.overview
+            if (o.isEmpty) {
+                EmptyState(YsIcons.Calendar, "No activity yet", "Your recorded practice sessions will be listed here.")
             } else {
-                state.recent.forEach { s ->
-                    Text("${s.asana.displayName} · ${s.durationSeconds / 60} min", style = MaterialTheme.typography.bodyMedium, color = Ink)
+                Row {
+                    StatTile("Completed", o.completedSessions.toString(), Modifier.weight(1f))
+                    StatTile("All sessions", o.recordedSessions.toString(), Modifier.weight(1f))
+                    StatTile("Last session", o.lastSession?.let { PracticeFormat.duration(it.activeDurationMs) }, Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(Spacing.sm))
+                o.recent.forEach { s ->
+                    androidx.compose.material3.HorizontalDivider(color = com.chinmai.yogasense.ui.theme.Hairline)
+                    Row(Modifier.fillMaxWidth().padding(vertical = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                s.asanas.joinToString { it.displayName }.ifEmpty { "No pose recognised" },
+                                style = MaterialTheme.typography.titleSmall, color = Ink, maxLines = 1,
+                            )
+                            Text("${PracticeFormat.date(s.startedAtMillis)} · ${PracticeFormat.duration(s.activeDurationMs)}", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                        }
+                        Tag(PracticeFormat.completion(s.completion), style = if (s.completion == com.chinmai.yogasense.data.db.SessionCompletion.COMPLETED) TagStyle.Lime else TagStyle.Neutral)
+                    }
                 }
             }
         }

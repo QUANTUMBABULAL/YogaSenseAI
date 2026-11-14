@@ -74,7 +74,7 @@ class QuestionnaireFlow(val questionnaire: Questionnaire) {
     fun toRecord(nowMillis: Long): QuestionnaireRecord? {
         val r = state as? State.Result ?: return null
         val item9 = questionnaire.type == QuestionnaireType.PHQ9 && (answers[Questionnaires.PHQ9_ITEM9_INDEX] ?: 0) > 0
-        return QuestionnaireRecord(0, questionnaire.type, nowMillis, answers.map { it!! }, r.total, r.band.label, difficulty, item9)
+        return QuestionnaireRecord("", questionnaire.type, nowMillis, answers.map { it!! }, r.total, r.band.label, difficulty, item9)
     }
 
     private fun next(index: Int): State = when {

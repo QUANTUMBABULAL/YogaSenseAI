@@ -58,7 +58,7 @@ object CheckInValidator {
 
 /** A completed, scored questionnaire. Answers are stored only with consent. */
 data class QuestionnaireRecord(
-    val id: Long = 0,
+    val id: String = "",           // storage id (Room assessment_id); "" until saved
     val type: QuestionnaireType,
     val completedAtMillis: Long,
     val answers: List<Int>,

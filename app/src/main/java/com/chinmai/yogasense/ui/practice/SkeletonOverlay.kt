@@ -26,13 +26,15 @@ private val WeakBone = Color(0x66F5C26B)
  */
 @Composable
 fun SkeletonOverlay(
-    frame: PoseFrame?,
+    /** Read inside the draw phase: a new frame only redraws the canvas, it doesn't recompose. */
+    frame: () -> PoseFrame?,
     mirror: Boolean,
     modifier: Modifier = Modifier,
     hideBelow: Float = 0.2f,
     highlightWeak: Boolean = true,
 ) {
     Canvas(modifier) {
+        val frame = frame()
         if (frame == null || !frame.hasPose || frame.imageWidth == 0 || frame.imageHeight == 0) return@Canvas
         val scale = min(size.width / frame.imageWidth, size.height / frame.imageHeight)
         val drawnW = frame.imageWidth * scale
