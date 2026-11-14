@@ -275,7 +275,14 @@ class PracticeSession(
         voice.release()
     }
 
+    /**
+     * Guided sessions mute the regular coach outside the pose stages (demo, countdown, recovery),
+     * so only one voice speaks. Muted cues are dropped, not queued.
+     */
+    var coachingMuted: Boolean = false
+
     private fun dispatch(cues: List<Cue>, nowMs: Long) {
+        if (coachingMuted) return
         for (c in cues) {
             voice.speak(c)
             _ui.update { it.copy(lastCue = c, lastCueAtMs = nowMs) }

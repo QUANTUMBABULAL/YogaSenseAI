@@ -82,6 +82,8 @@ fun AsanaAnimationPlayer(
     autoPlay: Boolean = true,
     loop: Boolean = true,
     caption: String? = null,
+    /** Called when non-looping media plays to the end (guided sessions advance on it). */
+    onEnded: (() -> Unit)? = null,
 ) {
     var videoFailed by remember(media) { mutableStateOf(false) }
     val active = if (videoFailed && fallback != null) fallback else media
@@ -113,6 +115,10 @@ fun AsanaAnimationPlayer(
 
     val state by playback.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.status) { if (state.status == PlaybackStatus.Error && active is LessonMedia.Video) videoFailed = true }
+    LaunchedEffect(state.status, active) {
+        // A static illustration has nothing to play: it is "ended" immediately (the caller decides how long to show it).
+        if (state.status == PlaybackStatus.Ended || active is LessonMedia.StaticIllustration) onEnded?.invoke()
+    }
     // Drive time: frame clock for the illustration, 250 ms polling for video position.
     LaunchedEffect(playback, state.isPlaying) {
         when (playback) {

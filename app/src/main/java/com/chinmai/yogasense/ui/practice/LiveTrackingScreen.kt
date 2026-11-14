@@ -68,6 +68,15 @@ import com.chinmai.yogasense.ui.theme.TextMuted
 import com.chinmai.yogasense.ui.theme.Warn
 import com.chinmai.yogasense.ui.theme.WarmWhite
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import com.chinmai.yogasense.coaching.Cue
+import com.chinmai.yogasense.coaching.CuePriority
+import com.chinmai.yogasense.coaching.VoiceStatus
+import com.chinmai.yogasense.session.GuidedEffect
+import com.chinmai.yogasense.session.GuidedEvent
+import com.chinmai.yogasense.session.GuidedSessionMachine
+import com.chinmai.yogasense.session.GuidedStage
+import com.chinmai.yogasense.session.PauseReason
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -92,6 +101,8 @@ fun LiveTrackingScreen(
     profile: PracticeProfileBinding = PracticeProfileBinding(),
     /** Called after Finish on the summary (the session is confirmed and saved first); defaults to [onClose]. */
     onFinished: (() -> Unit)? = onClose,
+    /** Non-null = hands-free guided session over these asanas (same camera/recognition pipeline). */
+    guidedPlan: List<Asana>? = null,
 ) {
     val context = LocalContext.current
     fun granted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -115,7 +126,7 @@ fun LiveTrackingScreen(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
-            PracticeContent(onClose, onFinished, targetName, targetAsana, profile)
+            PracticeContent(onClose, onFinished, targetName, targetAsana, profile, guidedPlan)
         } else {
             val activity = context as? Activity
             val permanentlyDenied = askedOnce && activity != null &&
@@ -141,7 +152,7 @@ fun LiveTrackingScreen(
 }
 
 @Composable
-private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, targetName: String?, targetAsana: Asana?, profile: PracticeProfileBinding) {
+private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, targetName: String?, targetAsana: Asana?, profile: PracticeProfileBinding, guidedPlan: List<Asana>? = null) {
     val context = LocalContext.current
     var lensFacing by rememberSaveable { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var cameraStatus by remember { mutableStateOf<CameraStatus>(CameraStatus.Starting) }
@@ -177,6 +188,33 @@ private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, t
         )
     }
     DisposableEffect(session) { onDispose { session.release(SystemClock.uptimeMillis()) } }
+
+    // ---- Guided session (Phase 9): one authoritative state machine over the SAME camera session ----
+    val guided = remember { guidedPlan?.takeIf { it.isNotEmpty() }?.let { plan -> GuidedSessionMachine(plan) { a -> AsanaCatalog.of(a)?.name ?: a.displayName } } }
+    var guidedState by remember { mutableStateOf(guided?.state) }
+    var guidedRemaining by remember { mutableStateOf<Long?>(null) }
+    fun runGuided(effects: List<GuidedEffect>) {
+        val m = guided ?: return
+        val now = SystemClock.uptimeMillis()
+        // End the practice session first (it stops speech), then speak the completion line.
+        effects.filterIsInstance<GuidedEffect.Completed>().forEach { _ -> session.end(now) }
+        effects.filterIsInstance<GuidedEffect.Speak>().forEach { e ->
+            if (e.interrupt) session.voice.stop() // cancel obsolete countdowns/announcements
+            session.voice.speak(Cue(e.key, e.text, if (e.interrupt) CuePriority.FRAMING else CuePriority.INFO))
+        }
+        guidedState = m.state
+        guidedRemaining = m.remainingMs()
+        // Only the pose stages use the regular alignment coach; demos/countdowns/rests stay quiet.
+        session.coachingMuted = m.state.stage != GuidedStage.WAITING_FOR_POSE && m.state.stage != GuidedStage.HOLDING
+    }
+    fun guide(e: GuidedEvent) { val m = guided ?: return; runGuided(m.onEvent(e)) }
+    LaunchedEffect(guided) {
+        val m = guided ?: return@LaunchedEffect
+        // Give TextToSpeech up to 3 s to initialise so the welcome isn't dropped.
+        kotlinx.coroutines.withTimeoutOrNull(3_000) { session.voice.state.first { it.status != VoiceStatus.Initializing } }
+        runGuided(m.start(SystemClock.uptimeMillis()))
+        while (m.state.stage != GuidedStage.SESSION_COMPLETED) { guide(GuidedEvent.Tick(SystemClock.uptimeMillis())); delay(100) }
+    }
     val uiState = session.ui.collectAsStateWithLifecycle()
     val coach by session.coachSettings.collectAsStateWithLifecycle()
     val visual by session.visualSettings.collectAsStateWithLifecycle()
@@ -187,7 +225,12 @@ private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, t
         val e = engine ?: return@LaunchedEffect
         val c = controller ?: return@LaunchedEffect
         combine(c.state, e.frames) { r, f -> r.recognition to f }.collect { (r, f) ->
-            session.onSnapshot(f, r, SystemClock.uptimeMillis())
+            val t = SystemClock.uptimeMillis()
+            session.onSnapshot(f, r, t)
+            if (guided != null) {
+                val hold = session.ui.value.live?.hold
+                guide(GuidedEvent.Frame(t, r.asana.takeIf { r.isStable }, hold?.counting == true, hold?.asana))
+            }
         }
     }
     var nowMs by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
@@ -213,9 +256,22 @@ private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, t
     // Auto-pause when the app goes to the background; the user resumes explicitly.
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner, session) {
-        val obs = LifecycleEventObserver { _, ev -> if (ev == Lifecycle.Event.ON_PAUSE) session.pause(SystemClock.uptimeMillis()) }
+        val obs = LifecycleEventObserver { _, ev ->
+            if (ev == Lifecycle.Event.ON_PAUSE) { session.pause(SystemClock.uptimeMillis()); guide(GuidedEvent.Pause(PauseReason.BACKGROUND)) }
+        }
         owner.lifecycle.addObserver(obs)
         onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+
+    // Camera lost → pause safely; camera back → resume automatically (only if the camera caused the pause).
+    LaunchedEffect(cameraStatus, guided) {
+        if (guided == null) return@LaunchedEffect
+        val now = SystemClock.uptimeMillis()
+        when (cameraStatus) {
+            is CameraStatus.Error -> { session.pause(now); guide(GuidedEvent.Pause(PauseReason.CAMERA)) }
+            CameraStatus.Active -> if (guided.state.pausedBy == PauseReason.CAMERA) { guide(GuidedEvent.Resume); session.resume(now) }
+            else -> Unit
+        }
     }
 
     var sheet by remember { mutableStateOf<PracticeSheet?>(null) }
@@ -295,10 +351,15 @@ private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, t
             PracticeControls(
                 elapsedMs = elapsedMs,
                 paused = paused,
-                onPauseToggle = { val t = SystemClock.uptimeMillis(); if (uiState.value.paused) session.resume(t) else session.pause(t) },
+                onPauseToggle = {
+                    val t = SystemClock.uptimeMillis()
+                    if (guided != null) {
+                        if (guided.state.paused) { guide(GuidedEvent.Resume); session.resume(t) } else { session.pause(t); guide(GuidedEvent.Pause(PauseReason.USER)) }
+                    } else if (uiState.value.paused) session.resume(t) else session.pause(t)
+                },
                 onVoice = { sheet = PracticeSheet.Voice },
                 onVisual = { sheet = PracticeSheet.Visual },
-                onEnd = { session.end(SystemClock.uptimeMillis()) },
+                onEnd = { if (guided != null) guide(GuidedEvent.Exit) else session.end(SystemClock.uptimeMillis()) },
             )
         }
     }
@@ -309,7 +370,24 @@ private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, t
             onCoach = session::updateCoach, onVisual = session::updateVisual, onDismiss = { sheet = null },
         )
     }
-    summary?.let { sm ->
+    val gs = guidedState
+    if (guided != null && gs != null) {
+        GuidedSessionOverlay(
+            gs, guidedRemaining, guided.config.holdTargetMs, summary,
+            GuidedActions(
+                onDemoEnded = { epoch -> guide(GuidedEvent.DemoEnded(epoch)) },
+                onSkipDemo = { guide(GuidedEvent.SkipDemo) },
+                onSkipPose = { guide(GuidedEvent.SkipPose) },
+                onRetry = { guide(GuidedEvent.RetryPose) },
+                onResume = { guide(GuidedEvent.Resume); session.resume(SystemClock.uptimeMillis()) },
+                onPause = { session.pause(SystemClock.uptimeMillis()); guide(GuidedEvent.Pause(PauseReason.USER)) },
+                onExit = { guide(GuidedEvent.Exit) },
+                // A finished plan counts as "ended by the user" for the existing completion policy; an early exit does not.
+                onDone = { if (!gs.endedEarly) session.confirmEnd(); currentClose?.invoke() },
+            ),
+        )
+    }
+    if (guided == null) summary?.let { sm ->
         val currentFinished by rememberUpdatedState(onFinished)
         val keepPractising = { session.continueAfterSummary(SystemClock.uptimeMillis()) }
         androidx.activity.compose.BackHandler(onBack = keepPractising)

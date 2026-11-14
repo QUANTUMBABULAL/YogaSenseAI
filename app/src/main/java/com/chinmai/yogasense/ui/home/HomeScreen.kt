@@ -86,6 +86,8 @@ fun HomeScreen(
     personalisation: com.chinmai.yogasense.profile.PersonalisationView? = null,
     onPersonalise: () -> Unit = {},
     onDismissPersonalise: () -> Unit = {},
+    /** Hands-free guided session over the planned poses. */
+    onStartGuided: (List<com.chinmai.yogasense.asana.Asana>) -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -105,7 +107,11 @@ fun HomeScreen(
         if (personalisation?.showPrompt == true) {
             item(key = "personalise") { PersonalisePrompt(onPersonalise, onDismissPersonalise, Modifier.padding(horizontal = Spacing.gutter)) }
         }
-        item(key = "today") { TodayCard(featured, { onStartPractice(featured.id) }, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
+        item(key = "today") {
+            // Personalised session plan when available (Phase 7B.5 recommender), otherwise all poses.
+            val plan = (suggestion?.sessionPlan?.poses ?: explore).map { it.asana }
+            TodayCard(featured, { onStartPractice(featured.id) }, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter), onGuided = { onStartGuided(plan) }, guidedCount = plan.size)
+        }
         if (suggestion != null && personalisation != null && (suggestion.sessionPlan != null || personalisation.p.bodyAreas.isNotEmpty() || personalisation.p.goals.isNotEmpty())) {
             item(key = "foryou") { ForYouCard(suggestion, personalisation, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
         }
@@ -211,7 +217,7 @@ private fun Header(state: HomeUiState, profileName: String?, onOpenProfile: () -
 
 /** Signature hero: today's suggested pose on a glowing midnight card with an oversized figure. */
 @Composable
-private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier) {
+private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier, onGuided: () -> Unit = {}, guidedCount: Int = 0) {
     Box(modifier.fillMaxWidth()) {
         GlowCard(Modifier.fillMaxWidth(), contentPadding = Spacing.lg) {
             Row(
@@ -232,11 +238,14 @@ private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Uni
             }
             Spacer(Modifier.height(Spacing.lg))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm + 2.dp)) {
-                PrimaryButton("Start practice", onStart, icon = YsIcons.Play, modifier = Modifier.weight(1f))
+                PrimaryButton("Guided · $guidedCount poses", onGuided, icon = YsIcons.Play, modifier = Modifier.weight(1f))
                 Surface(
                     onClick = { onOpen(a.id) }, shape = CircleShape, color = Color.White.copy(alpha = 0.10f), contentColor = WarmWhite,
                     modifier = Modifier.size(56.dp).semantics { contentDescription = "How to do ${a.name}" },
                 ) { Box(contentAlignment = Alignment.Center) { Icon(YsIcons.Info, null, modifier = Modifier.size(22.dp)) } }
+            }
+            TextButton(onClick = onStart, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Text("Practise this pose only", style = MaterialTheme.typography.labelLarge, color = Lime)
             }
         }
         AsanaFigure(a.figure, Modifier.align(Alignment.TopEnd).padding(top = Spacing.lg, end = Spacing.xs).size(140.dp), color = Lime)
