@@ -62,6 +62,7 @@ import com.chinmai.yogasense.ui.theme.WarmWhite
 @Composable
 fun ProfileScreen(
     onWellnessData: () -> Unit = {},
+    onPracticeSettings: () -> Unit = {},
     profile: com.chinmai.yogasense.profile.UserProfile? = null,
     profileCount: Int = 1,
     onSwitchProfile: () -> Unit = {},
@@ -80,7 +81,12 @@ fun ProfileScreen(
         contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item { Text("Profile", style = MaterialTheme.typography.displaySmall, color = Ink, modifier = Modifier.padding(top = Spacing.md)) }
+        item {
+            Column(Modifier.padding(top = Spacing.md)) {
+                Text("YOU", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+                Text("Profile", style = MaterialTheme.typography.displaySmall, color = Ink)
+            }
+        }
         if (profile != null) {
             item { ActiveProfileCard(profile) }
             item {
@@ -137,14 +143,14 @@ fun ProfileScreen(
             }
         }
 
-        item { SectionHeader("Coming in future updates", Modifier.padding(top = Spacing.sm), subtitle = "Shown for reference — not adjustable yet") }
+        item { SectionHeader("Practice", Modifier.padding(top = Spacing.sm), subtitle = "Saved for this profile") }
         item {
             YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.sm) {
+                ListRow(YsIcons.Voice, "Voice guidance", subtitle = "Coach mode, encouragement, countdown, speed", onClick = onPracticeSettings, trailing = { androidx.compose.material3.Icon(YsIcons.ChevronRight, null, tint = InkMuted) })
+                HorizontalDivider(color = Hairline)
+                ListRow(YsIcons.Eye, "Visual guidance", subtitle = "Skeleton, pose reference, highlights", onClick = onPracticeSettings, trailing = { androidx.compose.material3.Icon(YsIcons.ChevronRight, null, tint = InkMuted) })
+                HorizontalDivider(color = Hairline)
                 ListRow(YsIcons.Sliders, "Practice preferences", subtitle = "Hold times, rest intervals", enabled = false, trailing = { ComingSoonTag() })
-                HorizontalDivider(color = Hairline)
-                ListRow(YsIcons.Voice, "Voice guidance", subtitle = "Spoken corrections and encouragement", enabled = false, trailing = { ComingSoonTag() })
-                HorizontalDivider(color = Hairline)
-                ListRow(YsIcons.Eye, "Visual guidance", subtitle = "Skeleton overlay and on-screen cues", enabled = false, trailing = { ComingSoonTag() })
                 HorizontalDivider(color = Hairline)
                 ListRow(YsIcons.Bell, "Notifications", subtitle = "Practice and check-in reminders", enabled = false, trailing = { ComingSoonTag() })
             }

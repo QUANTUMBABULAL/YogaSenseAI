@@ -229,11 +229,16 @@ private fun DrawScope.drawBars(series: TrendSeries, maxValue: Float, selected: I
 
 /** Compassionate support content (PHQ-9 item 9). Call buttons only open the phone dialer. */
 @Composable
-fun SupportContent(modifier: Modifier = Modifier) {
+fun SupportContent(modifier: Modifier = Modifier, afterItem9: Boolean = true) {
     val context = LocalContext.current
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        Text(CrisisSupport.TITLE, style = MaterialTheme.typography.headlineSmall, color = Ink)
-        Text(CrisisSupport.INTRO, style = MaterialTheme.typography.bodyLarge, color = Ink)
+        if (afterItem9) {
+            Text(CrisisSupport.TITLE, style = MaterialTheme.typography.headlineSmall, color = Ink)
+            Text(CrisisSupport.INTRO, style = MaterialTheme.typography.bodyLarge, color = Ink)
+        } else {
+            Text("You don't have to manage alone", style = MaterialTheme.typography.headlineSmall, color = Ink)
+            Text("If things feel hard right now, talking to someone can help. These services are free and confidential.", style = MaterialTheme.typography.bodyLarge, color = Ink)
+        }
         Surface(color = CoralTint, shape = MaterialTheme.shapes.large) {
             Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(CrisisSupport.IMMEDIATE_HEADER, style = MaterialTheme.typography.titleMedium, color = Ink)

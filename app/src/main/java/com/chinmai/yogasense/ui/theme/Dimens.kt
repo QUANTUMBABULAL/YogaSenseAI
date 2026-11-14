@@ -19,8 +19,8 @@ object Spacing {
 /** Card radii 16–22 dp per brand direction. */
 object Radius {
     val chip = 12.dp
-    val card = 20.dp
-    val hero = 22.dp
+    val card = 24.dp
+    val hero = 32.dp
 }
 
 val AppShapes = Shapes(

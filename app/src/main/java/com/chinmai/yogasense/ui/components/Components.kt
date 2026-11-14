@@ -1,6 +1,16 @@
 package com.chinmai.yogasense.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.chinmai.yogasense.ui.theme.WarningAmber
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -56,7 +66,7 @@ import com.chinmai.yogasense.ui.theme.SurfaceMuted
 import com.chinmai.yogasense.ui.theme.WarmWhite
 import com.chinmai.yogasense.ui.theme.YogaSenseAITheme
 
-private val ButtonShape = RoundedCornerShape(16.dp)
+private val ButtonShape = RoundedCornerShape(28.dp)
 
 // ---- Buttons ---------------------------------------------------------------------------
 
@@ -131,7 +141,7 @@ fun YsCard(
         CardStyle.Dark -> Midnight to WarmWhite
         CardStyle.Lime -> Lime to Midnight
     }
-    val border = if (style == CardStyle.White) BorderStroke(1.dp, Hairline) else null
+    val border: BorderStroke? = null
     val shape = RoundedCornerShape(Radius.card)
     val inner: @Composable () -> Unit = { Column(Modifier.padding(contentPadding), content = content) }
     if (onClick != null) {
@@ -293,24 +303,84 @@ fun StatTile(label: String, value: String?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Monday-first week strip. [marked] days are real practice days; [todayIndex] is outlined. */
+/** Monday-first week strip of capsules. [marked] days are real practice days; today is outlined. */
 @Composable
 fun WeekStrip(labels: List<String>, todayIndex: Int, marked: Set<Int>, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         labels.forEachIndexed { i, label ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = if (i == todayIndex) Ink else InkMuted)
-                Spacer(Modifier.size(6.dp))
-                Box(
-                    Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(if (i in marked) Lime else SurfaceMuted)
-                        .then(if (i == todayIndex) Modifier.border(2.dp, Midnight, CircleShape) else Modifier),
-                )
+            val on = i in marked
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 52.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (on) Lime else SurfaceMuted)
+                    .then(if (i == todayIndex) Modifier.border(2.dp, Midnight, RoundedCornerShape(18.dp)) else Modifier)
+                    .semantics { contentDescription = label + if (on) ", practised" else "" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = if (on || i == todayIndex) Ink else InkMuted)
+                    Spacer(Modifier.size(4.dp))
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(if (on) Midnight else Color.Transparent))
+                }
             }
         }
     }
+}
+
+/** Circular progress (0..1) with a centre slot. Used only with real, counted values. */
+@Composable
+fun RingProgress(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    size: Dp = 96.dp,
+    stroke: Dp = 10.dp,
+    color: Color = Lime,
+    track: Color = SurfaceMuted,
+    content: @Composable () -> Unit = {},
+) {
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(size)) {
+            val w = stroke.toPx()
+            val inset = Size(this.size.width - w, this.size.height - w)
+            val tl = Offset(w / 2, w / 2)
+            drawArc(track, 0f, 360f, false, tl, inset, style = Stroke(w))
+            if (progress > 0f) drawArc(color, -90f, 360f * progress.coerceIn(0f, 1f), false, tl, inset, style = Stroke(w, cap = StrokeCap.Round))
+        }
+        content()
+    }
+}
+
+/** Thin labelled 0–100 meter for light surfaces; null = not measured (never drawn as 0). */
+@Composable
+fun MeterBar(label: String, value: Int?, modifier: Modifier = Modifier) {
+    Column(modifier.semantics(mergeDescendants = true) { contentDescription = "$label ${value?.let { "$it out of 100" } ?: "not measured"}" }) {
+        Row {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = InkMuted, modifier = Modifier.weight(1f))
+            Text(value?.toString() ?: "—", style = MaterialTheme.typography.labelMedium, color = if (value != null) Ink else InkSubtle)
+        }
+        Spacer(Modifier.size(4.dp))
+        Box(Modifier.fillMaxWidth().heightIn(min = 6.dp).clip(CircleShape).background(SurfaceMuted)) {
+            if (value != null) Box(Modifier.fillMaxWidth(value.coerceIn(0, 100) / 100f).heightIn(min = 6.dp).clip(CircleShape).background(if (value >= 70) LimeDeep else if (value >= 40) WarningAmber else CoralDeep))
+        }
+    }
+}
+
+/** Midnight hero surface with a soft lime + coral glow. The signature surface of the app. */
+@Composable
+fun GlowCard(modifier: Modifier = Modifier, radius: Dp = Radius.hero, contentPadding: Dp = Spacing.lg, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(radius))
+            .background(Midnight)
+            .drawBehind {
+                drawCircle(Brush.radialGradient(listOf(Lime.copy(alpha = 0.30f), Color.Transparent), Offset(size.width * 0.92f, size.height * 0.08f), size.width * 0.75f), size.width * 0.75f, Offset(size.width * 0.92f, size.height * 0.08f))
+                drawCircle(Brush.radialGradient(listOf(Coral.copy(alpha = 0.22f), Color.Transparent), Offset(size.width * 0.05f, size.height * 1.05f), size.width * 0.6f), size.width * 0.6f, Offset(size.width * 0.05f, size.height * 1.05f))
+            }
+            .padding(contentPadding),
+        content = content,
+    )
 }
 
 // ---- Rows ------------------------------------------------------------------------------

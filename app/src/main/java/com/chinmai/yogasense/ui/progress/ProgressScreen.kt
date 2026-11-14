@@ -1,5 +1,14 @@
 package com.chinmai.yogasense.ui.progress
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import com.chinmai.yogasense.ui.components.GlowCard
+import com.chinmai.yogasense.ui.components.MeterBar
+import com.chinmai.yogasense.ui.components.RingProgress
+import com.chinmai.yogasense.ui.theme.Lime
+import com.chinmai.yogasense.ui.theme.TextMuted
+import com.chinmai.yogasense.ui.theme.WarmWhite
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,35 +90,35 @@ fun ProgressScreen(onStartPractice: () -> Unit, onOpenWellness: () -> Unit = {},
     ) {
         item {
             Column(Modifier.padding(top = Spacing.md, bottom = Spacing.sm)) {
+                Text("YOUR JOURNEY", style = MaterialTheme.typography.labelSmall, color = InkMuted)
                 Text("Progress", style = MaterialTheme.typography.displaySmall, color = Ink)
-                Text("Practice quality and wellness, side by side", style = MaterialTheme.typography.bodyMedium, color = InkMuted)
             }
         }
         item {
-            ProgressCard("Practice overview", YsIcons.Progress) {
-                val w = state.weekly
-                val o = state.overview
-                Row(Modifier.fillMaxWidth()) {
-                    StatTile("Completed", o.completedSessions.takeIf { state.hasData }?.toString(), Modifier.weight(1f))
-                    StatTile("All sessions", o.recordedSessions.takeIf { state.hasData }?.toString(), Modifier.weight(1f))
-                    StatTile("Total minutes", o.totalActiveMinutes.takeIf { state.hasData }?.toString(), Modifier.weight(1f))
-                }
+            val w = state.weekly
+            val days = w?.practicedDaysOfWeek?.size ?: 0
+            GlowCard(Modifier.fillMaxWidth()) {
+                Text("THIS WEEK", style = MaterialTheme.typography.labelSmall, color = Lime)
                 Spacer(Modifier.height(Spacing.md))
-                Text("THIS WEEK", style = MaterialTheme.typography.labelSmall, color = InkMuted)
-                Spacer(Modifier.height(Spacing.xs))
-                Row(Modifier.fillMaxWidth()) {
-                    StatTile("Sessions", w?.sessions?.toString(), Modifier.weight(1f))
-                    StatTile("Minutes", w?.totalMinutes?.toString(), Modifier.weight(1f))
-                    StatTile("Day streak", w?.streakDays?.toString(), Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RingProgress(days / 7f, size = 104.dp, stroke = 11.dp, color = Lime, track = Color.White.copy(alpha = 0.12f)) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$days", style = MaterialTheme.typography.headlineMedium, color = WarmWhite)
+                            Text("of 7 days", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        }
+                    }
+                    Spacer(Modifier.width(Spacing.lg))
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md - 4.dp)) {
+                        DarkStat(w?.sessions?.toString() ?: "0", "sessions")
+                        DarkStat(w?.totalMinutes?.toString() ?: "0", "minutes")
+                        DarkStat(w?.streakDays?.toString() ?: "0", "day streak")
+                    }
                 }
-                if (state.hasData) {
-                    Spacer(Modifier.height(Spacing.sm))
-                    Text(
-                        "Completed = you ended the session and held at least one pose steadily. A day counts towards your streak " +
-                            "when it has a completed or ended-early session; the streak continues until a full day passes without practice.",
-                        style = MaterialTheme.typography.bodySmall, color = InkMuted,
-                    )
-                }
+            }
+        }
+        item {
+            ProgressCard("Weekly activity", YsIcons.Calendar) {
+                WeekStrip(state.weekLabels, state.todayIndex, state.weekly?.practicedDaysOfWeek.orEmpty())
                 if (!state.hasData) {
                     Spacer(Modifier.height(Spacing.md))
                     EmptyState(
@@ -120,13 +129,20 @@ fun ProgressScreen(onStartPractice: () -> Unit, onOpenWellness: () -> Unit = {},
                 }
             }
         }
-        item {
-            ProgressCard("Weekly activity", YsIcons.Calendar) {
-                WeekStrip(state.weekLabels, state.todayIndex, state.weekly?.practicedDaysOfWeek.orEmpty())
-                if (!state.hasData) {
-                    Spacer(Modifier.height(Spacing.sm + 4.dp))
-                    Text("Practice days will be highlighted here.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        if (state.hasData) item {
+            ProgressCard("All time", YsIcons.Progress) {
+                val o = state.overview
+                Row(Modifier.fillMaxWidth()) {
+                    StatTile("Completed", o.completedSessions.toString(), Modifier.weight(1f))
+                    StatTile("All sessions", o.recordedSessions.toString(), Modifier.weight(1f))
+                    StatTile("Minutes", o.totalActiveMinutes.toString(), Modifier.weight(1f))
                 }
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    "Completed = you ended the session and held at least one pose steadily. A day counts towards your streak " +
+                        "when it has a completed or ended-early session; the streak continues until a full day passes without practice.",
+                    style = MaterialTheme.typography.bodySmall, color = InkMuted,
+                )
             }
         }
         item {
@@ -154,10 +170,11 @@ fun ProgressScreen(onStartPractice: () -> Unit, onOpenWellness: () -> Unit = {},
                                 "Steady hold ${PracticeFormat.duration(h.totalStableHoldMs)} total · longest ${PracticeFormat.duration(h.longestHoldMs)} · last ${PracticeFormat.date(h.lastPracticedAtMillis)}",
                                 style = MaterialTheme.typography.bodySmall, color = InkMuted,
                             )
-                            Text(
-                                "Alignment ${PracticeFormat.score(h.averageAlignment)} · Stability ${PracticeFormat.score(h.averageStability)}",
-                                style = MaterialTheme.typography.bodySmall, color = Ink,
-                            )
+                            Spacer(Modifier.height(Spacing.sm))
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                                MeterBar("Alignment", h.averageAlignment, Modifier.weight(1f))
+                                MeterBar("Stability", h.averageStability, Modifier.weight(1f))
+                            }
                         }
                     }
                     if (i < state.asanas.lastIndex) HorizontalDivider(color = Hairline)
@@ -181,3 +198,11 @@ fun ProgressScreen(onStartPractice: () -> Unit, onOpenWellness: () -> Unit = {},
     }
 }
 
+@Composable
+private fun DarkStat(value: String, label: String) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(value, style = MaterialTheme.typography.titleLarge, color = WarmWhite)
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(bottom = 3.dp))
+    }
+}

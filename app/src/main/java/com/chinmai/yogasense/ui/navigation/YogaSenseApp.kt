@@ -75,6 +75,8 @@ import com.chinmai.yogasense.wellness.QuestionnaireType
 import com.chinmai.yogasense.ui.learning.PoseLearningScreen
 import com.chinmai.yogasense.catalog.AsanaCatalog
 import com.chinmai.yogasense.ui.practice.LiveTrackingScreen
+import com.chinmai.yogasense.ui.prepare.PracticePrepScreen
+import com.chinmai.yogasense.ui.prepare.PracticeSettingsScreen
 import com.chinmai.yogasense.ui.profile.ProfileScreen
 import com.chinmai.yogasense.ui.progress.ProgressScreen
 import com.chinmai.yogasense.ui.theme.PracticeTheme
@@ -242,11 +244,12 @@ private fun MainShell(
             composable(Routes.HOME) {
                 SystemBarIcons(darkIcons = true)
                 HomeScreen(
-                    onStartPractice = { nav.navigate(Routes.practice()) },
+                    onStartPractice = { nav.navigate(Routes.prepare(it)) },
                     onOpenAsana = { nav.navigate(Routes.asana(it)) },
                     onOpenExplore = { nav.navigateToTab(Routes.EXPLORE) },
                     onOpenProfile = { nav.navigateToTab(Routes.PROFILE) },
                     onCheckIn = { nav.navigate(Routes.CHECK_IN) },
+                    onOpenProgress = { nav.navigateToTab(Routes.PROGRESS) },
                     profileName = profile.displayName,
                     wellness = session.wellness.takeIf { wellnessStatus.isResolved },
                     personalisation = personalisation,
@@ -262,7 +265,7 @@ private fun MainShell(
             composable(Routes.PROGRESS) {
                 SystemBarIcons(darkIcons = true)
                 ProgressScreen(
-                    onStartPractice = { nav.navigate(Routes.practice()) },
+                    onStartPractice = { nav.navigate(Routes.prepare()) },
                     onOpenWellness = { nav.navigateToTab(Routes.WELLNESS) },
                     viewModel = viewModel { ProgressViewModel(session.practiceHistory) },
                 )
@@ -271,6 +274,7 @@ private fun MainShell(
                 SystemBarIcons(darkIcons = true)
                 ProfileScreen(
                     onWellnessData = { nav.navigate(Routes.WELLNESS_HISTORY) },
+                    onPracticeSettings = { nav.navigate(Routes.PRACTICE_SETTINGS) },
                     profile = profile, profileCount = profileCount,
                     onSwitchProfile = onSwitchProfile, onDeleteProfile = onDeleteProfile,
                     personalisation = personalisation,
@@ -333,7 +337,7 @@ private fun MainShell(
                     asanaId = e.arguments?.getString(Routes.ARG_ID),
                     onBack = { nav.popBackStack() },
                     onStartLearning = { nav.navigate(Routes.learn(it.id)) },
-                    onPracticeNow = { nav.navigate(Routes.practice(it.id)) },
+                    onPracticeNow = { nav.navigate(Routes.prepare(it.id)) },
                 )
             }
             composable(
@@ -356,6 +360,28 @@ private fun MainShell(
                 )
             }
             composable(
+                Routes.PREPARE,
+                arguments = listOf(navArgument(Routes.ARG_ASANA) { type = NavType.StringType; nullable = true; defaultValue = null }),
+                enterTransition = { slideInHorizontally(tween(250)) { it / 3 } + fadeIn(tween(250)) },
+                popExitTransition = { slideOutHorizontally(tween(200)) { it / 3 } + fadeOut(tween(200)) },
+            ) { e ->
+                SystemBarIcons(darkIcons = true)
+                PracticePrepScreen(
+                    initialAsanaId = e.arguments?.getString(Routes.ARG_ASANA),
+                    onBack = { nav.popBackStack() },
+                    onOpenLesson = { id -> nav.navigate(Routes.learn(id)) { popUpTo(Routes.PREPARE) { inclusive = true } } },
+                    onStart = { id -> nav.navigate(Routes.practice(id)) },
+                )
+            }
+            composable(
+                Routes.PRACTICE_SETTINGS,
+                enterTransition = { slideInHorizontally(tween(250)) { it / 3 } + fadeIn(tween(250)) },
+                popExitTransition = { slideOutHorizontally(tween(200)) { it / 3 } + fadeOut(tween(200)) },
+            ) {
+                SystemBarIcons(darkIcons = true)
+                PracticeSettingsScreen(onBack = { nav.popBackStack() })
+            }
+            composable(
                 Routes.PRACTICE,
                 arguments = listOf(navArgument(Routes.ARG_ASANA) { type = NavType.StringType; nullable = true; defaultValue = null }),
                 enterTransition = { slideInVertically(tween(280)) { it / 4 } + fadeIn(tween(280)) },
@@ -375,6 +401,7 @@ private fun MainShell(
                         if (p != null) {
                             LiveTrackingScreen(
                                 onClose = { nav.popBackStack() }, targetName = target?.name, targetAsana = target?.asana,
+                                onFinished = { if (!nav.popBackStack(Routes.PREPARE, inclusive = true)) nav.popBackStack() },
                                 profile = PracticeProfileBinding(
                                     preferences = p,
                                     diagnostics = session.deviceSettings.diagnostics,

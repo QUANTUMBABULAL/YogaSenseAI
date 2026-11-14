@@ -32,3 +32,16 @@ val Accent = Lime
 val AccentDim = Color(0xFF6E9440)
 val TextMuted = Color(0xFFA6ACB8)
 val Warn = Color(0xFFFF9A80)              // coral-tinted warning, readable on Midnight
+
+// ---- Pose accents (tiles, heroes) ---------------------------------------------------------
+val Sand = Color(0xFFF3E2BF)
+val Mist = Color(0xFFDDE6F0)
+
+/** Colour identity for one pose: tile background, figure colour, text colour on the tile. */
+data class PoseAccent(val bg: Color, val figure: Color, val onBg: Color, val onBgMuted: Color, val dark: Boolean = false)
+
+val AccentLime = PoseAccent(Lime, Midnight, Midnight, Color(0xFF3B4A22))
+val AccentCoral = PoseAccent(Coral, Midnight, Midnight, Color(0xFF5A2114))
+val AccentMidnight = PoseAccent(Midnight, Lime, WarmWhite, TextMuted, dark = true)
+val AccentSand = PoseAccent(Sand, Midnight, Midnight, Color(0xFF5C4A22))
+val AccentMist = PoseAccent(Mist, Midnight, Midnight, Color(0xFF3F4B5C))

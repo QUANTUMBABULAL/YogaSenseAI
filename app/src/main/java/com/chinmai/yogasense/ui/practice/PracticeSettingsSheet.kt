@@ -112,7 +112,7 @@ private fun VoiceSettings(c: CoachSettings, status: VoiceStatus, onChange: (Coac
         valueRange = 0.8f..1.2f, steps = 3, enabled = voiceOn,
         colors = SliderDefaults.colors(thumbColor = Lime, activeTrackColor = Lime, inactiveTrackColor = Surface2),
     )
-    Text("Corrections need alignment scoring, which is not implemented yet — today the coach speaks framing guidance, pose instructions, breathing and hold cues only.", color = TextMuted, fontSize = 12.sp)
+    Text("Corrections come from prototype alignment checks and are spoken one at a time. On-screen guidance continues when voice is off.", color = TextMuted, fontSize = 12.sp)
 }
 
 @Composable

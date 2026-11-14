@@ -90,6 +90,8 @@ fun LiveTrackingScreen(
     targetName: String? = null,
     targetAsana: Asana? = null,
     profile: PracticeProfileBinding = PracticeProfileBinding(),
+    /** Called after Finish on the summary (the session is confirmed and saved first); defaults to [onClose]. */
+    onFinished: (() -> Unit)? = onClose,
 ) {
     val context = LocalContext.current
     fun granted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -113,7 +115,7 @@ fun LiveTrackingScreen(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
-            PracticeContent(onClose, targetName, targetAsana, profile)
+            PracticeContent(onClose, onFinished, targetName, targetAsana, profile)
         } else {
             val activity = context as? Activity
             val permanentlyDenied = askedOnce && activity != null &&
@@ -139,7 +141,7 @@ fun LiveTrackingScreen(
 }
 
 @Composable
-private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetAsana: Asana?, profile: PracticeProfileBinding) {
+private fun PracticeContent(onClose: (() -> Unit)?, onFinished: (() -> Unit)?, targetName: String?, targetAsana: Asana?, profile: PracticeProfileBinding) {
     val context = LocalContext.current
     var lensFacing by rememberSaveable { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var cameraStatus by remember { mutableStateOf<CameraStatus>(CameraStatus.Starting) }
@@ -308,10 +310,15 @@ private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetA
         )
     }
     summary?.let { sm ->
-        SessionSummaryDialog(
-            sm,
-            onDone = { session.confirmEnd(); currentClose?.invoke() ?: session.continueAfterSummary(SystemClock.uptimeMillis()) },
-            onContinue = { session.continueAfterSummary(SystemClock.uptimeMillis()) },
+        val currentFinished by rememberUpdatedState(onFinished)
+        val keepPractising = { session.continueAfterSummary(SystemClock.uptimeMillis()) }
+        androidx.activity.compose.BackHandler(onBack = keepPractising)
+        SessionSummaryScreen(
+            summary = sm,
+            target = targetAsana,
+            willSave = SessionRecordPolicy.shouldSave(sm),
+            onFinish = { session.confirmEnd(); currentFinished?.invoke() ?: keepPractising() },
+            onKeepPractising = keepPractising,
         )
     }
 }

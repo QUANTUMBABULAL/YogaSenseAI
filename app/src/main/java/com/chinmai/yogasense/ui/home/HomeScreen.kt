@@ -1,6 +1,16 @@
 package com.chinmai.yogasense.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.chinmai.yogasense.ui.components.GlowCard
+import com.chinmai.yogasense.ui.components.RingProgress
+import com.chinmai.yogasense.ui.theme.CardWhite
+import com.chinmai.yogasense.ui.theme.CoralDeep
+import com.chinmai.yogasense.ui.theme.LimeDeep
+import com.chinmai.yogasense.ui.theme.Radius
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,11 +73,13 @@ import com.chinmai.yogasense.ui.theme.WarmWhite
 
 @Composable
 fun HomeScreen(
-    onStartPractice: () -> Unit,
+    /** Receives the suggested asana id (null = free practice). */
+    onStartPractice: (String?) -> Unit,
     onOpenAsana: (String) -> Unit,
     onOpenExplore: () -> Unit,
     onOpenProfile: () -> Unit,
     onCheckIn: () -> Unit = {},
+    onOpenProgress: () -> Unit = {},
     profileName: String? = null,
     /** Active profile's wellness store; null while the one-time wellness import is unresolved. */
     wellness: com.chinmai.yogasense.data.WellnessRepository? = null,
@@ -93,12 +105,12 @@ fun HomeScreen(
         if (personalisation?.showPrompt == true) {
             item(key = "personalise") { PersonalisePrompt(onPersonalise, onDismissPersonalise, Modifier.padding(horizontal = Spacing.gutter)) }
         }
-        item(key = "today") { TodayCard(featured, onStartPractice, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
+        item(key = "today") { TodayCard(featured, { onStartPractice(featured.id) }, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
         if (suggestion != null && personalisation != null && (suggestion.sessionPlan != null || personalisation.p.bodyAreas.isNotEmpty() || personalisation.p.goals.isNotEmpty())) {
             item(key = "foryou") { ForYouCard(suggestion, personalisation, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
         }
         item { CheckIn(Modifier.padding(horizontal = Spacing.gutter), wellness, onCheckIn) }
-        item { WeeklyOverview(state, onStartPractice, Modifier.padding(horizontal = Spacing.gutter)) }
+        item { WeeklyOverview(state, onOpenProgress, Modifier.padding(horizontal = Spacing.gutter)) }
         item {
             SectionHeader(
                 "Explore yoga", Modifier.padding(horizontal = Spacing.gutter),
@@ -110,7 +122,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md - 4.dp),
             ) {
                 items(explore, key = { it.id }) { a ->
-                    AsanaCard(a, onClick = { onOpenAsana(a.id) }, modifier = Modifier.width(164.dp))
+                    AsanaCard(a, onClick = { onOpenAsana(a.id) }, modifier = Modifier.width(172.dp))
                 }
             }
         }
@@ -181,58 +193,60 @@ private fun ForYouCard(
 
 @Composable
 private fun Header(state: HomeUiState, profileName: String?, onOpenProfile: () -> Unit) {
-    Column(Modifier.padding(horizontal = Spacing.gutter).padding(top = Spacing.md)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(32.dp).clip(CircleShape).background(Midnight), contentAlignment = Alignment.Center) {
-                Icon(YsIcons.Practice, null, tint = Lime, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(Spacing.sm))
-            Text("YogaSense", style = MaterialTheme.typography.titleMedium, color = Ink)
-            Text("AI", style = MaterialTheme.typography.titleMedium, color = Coral)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = onOpenProfile, modifier = Modifier.size(48.dp)) {
-                if (profileName != null) com.chinmai.yogasense.ui.profile.ProfileAvatar(profileName, size = 40)
-                else IconBadge(YsIcons.Profile, size = 40.dp, container = SurfaceMuted)
+    Row(Modifier.padding(horizontal = Spacing.gutter).padding(top = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(state.dateLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = InkMuted)
+            Spacer(Modifier.height(2.dp))
+            Text(state.greeting + if (profileName != null) "," else "", style = MaterialTheme.typography.displaySmall, color = Ink)
+            if (profileName != null) Text(profileName, style = MaterialTheme.typography.displaySmall, color = CoralDeep, maxLines = 1)
+        }
+        IconButton(onClick = onOpenProfile, modifier = Modifier.size(56.dp)) {
+            if (profileName != null) com.chinmai.yogasense.ui.profile.ProfileAvatar(profileName, size = 48)
+            else Box(Modifier.size(48.dp).clip(CircleShape).background(Midnight), contentAlignment = Alignment.Center) {
+                Icon(YsIcons.Profile, "Profile", tint = Lime, modifier = Modifier.size(24.dp))
             }
         }
-        Spacer(Modifier.height(Spacing.md))
-        Text(state.dateLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = InkMuted)
-        Text(if (profileName != null) "${state.greeting}, $profileName" else state.greeting, style = MaterialTheme.typography.displaySmall, color = Ink)
-        Text("Move better. Feel better.", style = MaterialTheme.typography.bodyLarge, color = InkMuted)
     }
 }
 
+/** Signature hero: today's suggested pose on a glowing midnight card with an oversized figure. */
 @Composable
 private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier) {
-    YsCard(modifier.fillMaxWidth(), style = CardStyle.Dark, contentPadding = Spacing.lg - 4.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("TODAY'S PRACTICE", style = MaterialTheme.typography.labelSmall, color = Lime)
-                Spacer(Modifier.height(Spacing.xs))
-                Text(a.name, style = MaterialTheme.typography.headlineSmall, color = WarmWhite)
-                Text(a.sanskrit, style = MaterialTheme.typography.bodyMedium, color = TextMuted)
-                Spacer(Modifier.height(Spacing.md - 4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    DarkPill(a.difficulty.label)
-                    DarkPill(a.holdLabel, YsIcons.Clock)
-                }
+    Box(modifier.fillMaxWidth()) {
+        GlowCard(Modifier.fillMaxWidth(), contentPadding = Spacing.lg) {
+            Row(
+                Modifier.clip(CircleShape).background(Lime).padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(YsIcons.Spark, null, tint = Midnight, modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("TODAY'S PRACTICE", style = MaterialTheme.typography.labelSmall, color = Midnight)
             }
-            Box(Modifier.size(104.dp).clip(CircleShape).background(Surface1), contentAlignment = Alignment.Center) {
-                AsanaFigure(a.figure, Modifier.size(84.dp), color = Lime)
+            Spacer(Modifier.height(Spacing.md))
+            Text(a.name, style = MaterialTheme.typography.displaySmall, color = WarmWhite, modifier = Modifier.fillMaxWidth(0.6f))
+            Text(a.sanskrit, style = MaterialTheme.typography.bodyLarge, color = TextMuted)
+            Spacer(Modifier.height(Spacing.md))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                DarkPill(a.difficulty.label)
+                DarkPill(a.holdLabel, YsIcons.Clock)
+            }
+            Spacer(Modifier.height(Spacing.lg))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm + 2.dp)) {
+                PrimaryButton("Start practice", onStart, icon = YsIcons.Play, modifier = Modifier.weight(1f))
+                Surface(
+                    onClick = { onOpen(a.id) }, shape = CircleShape, color = Color.White.copy(alpha = 0.10f), contentColor = WarmWhite,
+                    modifier = Modifier.size(56.dp).semantics { contentDescription = "How to do ${a.name}" },
+                ) { Box(contentAlignment = Alignment.Center) { Icon(YsIcons.Info, null, modifier = Modifier.size(22.dp)) } }
             }
         }
-        Spacer(Modifier.height(Spacing.md))
-        PrimaryButton("Start practice", onStart, icon = YsIcons.Play, modifier = Modifier.fillMaxWidth())
-        TextButton(onClick = { onOpen(a.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("How to do this pose", style = MaterialTheme.typography.labelLarge, color = WarmWhite)
-        }
+        AsanaFigure(a.figure, Modifier.align(Alignment.TopEnd).padding(top = Spacing.lg, end = Spacing.xs).size(140.dp), color = Lime)
     }
 }
 
 @Composable
 private fun DarkPill(text: String, icon: ImageVector? = null) {
     Row(
-        Modifier.clip(CircleShape).background(Surface1).padding(horizontal = 10.dp, vertical = 5.dp),
+        Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, tint = Lime, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(4.dp)) }
@@ -240,67 +254,97 @@ private fun DarkPill(text: String, icon: ImageVector? = null) {
     }
 }
 
+/** One card for the daily check-in: a lime prompt before, today's three real answers after. */
 @Composable
 private fun CheckIn(modifier: Modifier, repo: com.chinmai.yogasense.data.WellnessRepository?, onCheckIn: () -> Unit) {
     // Today's real check-in for the active profile (nothing shown that wasn't entered).
     val empty = androidx.compose.runtime.remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.chinmai.yogasense.wellness.DailyCheckIn>()) }
     val all by (repo?.checkIns ?: empty).collectAsStateWithLifecycle()
-    val today = com.chinmai.yogasense.wellness.WellnessDates.epochDay(System.currentTimeMillis())
-    val t = all.firstOrNull { it.epochDay == today }
-    Column(modifier) {
-        SectionHeader(
-            "Daily check-in",
-            subtitle = when {
-                repo == null -> "Preparing your wellness data · tap for details"
-                t == null -> "How are you today? Tap to check in"
-                else -> "Checked in today · tap to edit"
-            },
-        )
-        Spacer(Modifier.height(Spacing.sm + 4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm + 4.dp)) {
-            CheckInTile(YsIcons.Mood, "Mood", t?.mood?.let { com.chinmai.yogasense.wellness.Scales.MOOD.label(it) }, onCheckIn, Modifier.weight(1f))
-            CheckInTile(YsIcons.Stress, "Stress", t?.stress?.let { com.chinmai.yogasense.wellness.Scales.STRESS.label(it) }, onCheckIn, Modifier.weight(1f))
-            CheckInTile(YsIcons.Sleep, "Sleep", t?.sleepHours?.let { com.chinmai.yogasense.ui.wellness.formatHours(it) }, onCheckIn, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun CheckInTile(icon: ImageVector, label: String, value: String?, onClick: () -> Unit, modifier: Modifier) {
-    YsCard(modifier, contentPadding = Spacing.md - 4.dp, onClick = onClick) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            IconBadge(icon, size = 44.dp, tint = if (value == null) InkMuted else Midnight, container = if (value == null) SurfaceMuted else Lime)
-            Spacer(Modifier.height(Spacing.sm))
-            Text(label, style = MaterialTheme.typography.titleSmall, color = Ink)
-            Text(value ?: "Not logged", style = MaterialTheme.typography.bodySmall, color = InkMuted, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun WeeklyOverview(state: HomeUiState, onStart: () -> Unit, modifier: Modifier) {
-    Column(modifier) {
-        SectionHeader("This week")
-        Spacer(Modifier.height(Spacing.sm + 4.dp))
-        YsCard(Modifier.fillMaxWidth()) {
-            val w = state.weekly
-            if (w != null) {
-                Row {
-                    StatTile("Sessions", w.sessions.toString(), Modifier.weight(1f))
-                    StatTile("Minutes", w.totalMinutes.toString(), Modifier.weight(1f))
-                    StatTile("Day streak", w.streakDays.toString(), Modifier.weight(1f))
+    val day = com.chinmai.yogasense.wellness.WellnessDates.epochDay(System.currentTimeMillis())
+    val t = all.firstOrNull { it.epochDay == day }
+    val pending = t == null
+    Surface(
+        onClick = onCheckIn, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(Radius.hero),
+        color = if (pending) Lime else CardWhite, contentColor = Midnight,
+    ) {
+        Column(Modifier.padding(Spacing.lg - 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("DAILY CHECK-IN", style = MaterialTheme.typography.labelSmall, color = if (pending) OnLimeMuted else InkMuted)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        when {
+                            repo == null -> "Preparing your wellness data"
+                            pending -> "How are you today?"
+                            else -> "Checked in today"
+                        },
+                        style = MaterialTheme.typography.headlineSmall, color = Midnight,
+                    )
                 }
-                Spacer(Modifier.height(Spacing.md))
+                Box(Modifier.size(44.dp).clip(CircleShape).background(Midnight), contentAlignment = Alignment.Center) {
+                    Icon(if (pending) YsIcons.ChevronRight else YsIcons.Leaf, null, tint = Lime, modifier = Modifier.size(20.dp))
+                }
             }
+            Spacer(Modifier.height(Spacing.md))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                CheckInChip(YsIcons.Mood, "Mood", t?.mood?.let { com.chinmai.yogasense.wellness.Scales.MOOD.label(it) }, pending, Modifier.weight(1f))
+                CheckInChip(YsIcons.Stress, "Stress", t?.stress?.let { com.chinmai.yogasense.wellness.Scales.STRESS.label(it) }, pending, Modifier.weight(1f))
+                CheckInChip(YsIcons.Sleep, "Sleep", t?.sleepHours?.let { com.chinmai.yogasense.ui.wellness.formatHours(it) }, pending, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+private val OnLimeMuted = Color(0xFF3B4A22)
+
+@Composable
+private fun CheckInChip(icon: ImageVector, label: String, value: String?, onLime: Boolean, modifier: Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(18.dp)).background(if (onLime) Color.White.copy(alpha = 0.45f) else SurfaceMuted)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$label: ${value ?: "not logged"}" },
+    ) {
+        Icon(icon, null, tint = Midnight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(value ?: "—", style = MaterialTheme.typography.titleSmall, color = Midnight, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = if (onLime) OnLimeMuted else InkMuted)
+    }
+}
+
+/** Week at a glance: ring of days practised (a count, not a target) beside real totals. */
+@Composable
+private fun WeeklyOverview(state: HomeUiState, onOpenProgress: () -> Unit, modifier: Modifier) {
+    Column(modifier) {
+        SectionHeader("This week", actionLabel = "Progress", onAction = onOpenProgress)
+        Spacer(Modifier.height(Spacing.sm))
+        YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.lg - 4.dp) {
+            val w = state.weekly
+            val days = w?.practicedDaysOfWeek?.size ?: 0
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RingProgress(days / 7f, size = 92.dp, color = LimeDeep) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$days", style = MaterialTheme.typography.headlineSmall, color = Ink)
+                        Text("of 7 days", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                    }
+                }
+                Spacer(Modifier.width(Spacing.lg - 4.dp))
+                if (w != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Row {
+                            StatTile("Sessions", w.sessions.toString(), Modifier.weight(1f))
+                            StatTile("Minutes", w.totalMinutes.toString(), Modifier.weight(1f))
+                        }
+                        Tag("${w.streakDays}-day streak", style = TagStyle.Coral, icon = YsIcons.Flame)
+                    }
+                } else {
+                    Column {
+                        Text("No sessions yet this week", style = MaterialTheme.typography.titleMedium, color = Ink)
+                        Text("Finish a live practice to start filling your ring.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                    }
+                }
+            }
+            Spacer(Modifier.height(Spacing.md + 4.dp))
             WeekStrip(state.weekLabels, state.todayIndex, w?.practicedDaysOfWeek.orEmpty())
-            if (w == null) {
-                Spacer(Modifier.height(Spacing.md))
-                Text("No sessions recorded yet", style = MaterialTheme.typography.titleSmall, color = Ink)
-                Text(
-                    "Finish a live practice session and your sessions, practice time and streak appear here.",
-                    style = MaterialTheme.typography.bodySmall, color = InkMuted,
-                )
-            }
         }
     }
 }

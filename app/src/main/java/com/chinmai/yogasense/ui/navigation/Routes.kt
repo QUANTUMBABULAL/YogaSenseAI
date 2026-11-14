@@ -15,6 +15,11 @@ object Routes {
     /** Optional selected asana; the plain "practice" route (Home, Progress) still matches. */
     const val PRACTICE = "practice?$ARG_ASANA={$ARG_ASANA}"
 
+    /** Practice preparation; optional pre-selected asana (none = free practice). */
+    const val PREPARE = "prepare?$ARG_ASANA={$ARG_ASANA}"
+    const val PRACTICE_SETTINGS = "settings/practice"
+    fun prepare(asanaId: String? = null) = if (asanaId == null) "prepare" else "prepare?$ARG_ASANA=$asanaId"
+
     const val WELLNESS = "wellness"
     const val CHECK_IN = "wellness/checkin"
     const val QUESTIONNAIRE = "wellness/questionnaire/{type}"

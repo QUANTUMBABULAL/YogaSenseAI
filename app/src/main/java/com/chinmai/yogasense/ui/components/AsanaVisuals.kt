@@ -1,6 +1,18 @@
 package com.chinmai.yogasense.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.Dp
+import com.chinmai.yogasense.asana.Asana
+import com.chinmai.yogasense.ui.theme.AccentCoral
+import com.chinmai.yogasense.ui.theme.AccentLime
+import com.chinmai.yogasense.ui.theme.AccentMidnight
+import com.chinmai.yogasense.ui.theme.AccentMist
+import com.chinmai.yogasense.ui.theme.AccentSand
+import com.chinmai.yogasense.ui.theme.Lime
+import com.chinmai.yogasense.ui.theme.PoseAccent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,43 +87,73 @@ fun AsanaFigure(figure: PoseFigure, modifier: Modifier = Modifier, color: Color 
     }
 }
 
+/** Colour identity per pose, so the library reads as a set of distinct tiles. */
+fun accentFor(info: AsanaInfo): PoseAccent = when (info.asana) {
+    Asana.TADASANA -> AccentSand
+    Asana.TREE -> AccentLime
+    Asana.WARRIOR_II -> AccentCoral
+    Asana.CHAIR -> AccentMidnight
+    Asana.TRIANGLE -> AccentMist
+    else -> AccentSand
+}
+
 /**
- * Visual slot for an asana. Phase 4: static illustration on a tinted panel.
- * Phase 5 integration point: replace the body of this composable with the animation player;
- * every caller (cards, detail page) picks it up unchanged.
+ * Illustration slot for an asana: the pose figure over its accent colour with a soft halo.
+ * The figure is a static illustration (labelled when [showLabel]).
  */
 @Composable
-fun AsanaVisual(info: AsanaInfo, modifier: Modifier = Modifier, showLabel: Boolean = false) {
-    val tint = if (info.difficulty == Difficulty.BEGINNER) LimeTint else CoralTint
+fun AsanaVisual(info: AsanaInfo, modifier: Modifier = Modifier, showLabel: Boolean = false, corner: Dp = Radius.card) {
+    val accent = accentFor(info)
     Box(
         modifier
-            .clip(RoundedCornerShape(Radius.card))
-            .background(tint)
+            .clip(RoundedCornerShape(corner))
+            .background(accent.bg)
+            .drawBehind {
+                val halo = if (accent.dark) Lime.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.38f)
+                drawCircle(halo, radius = min(size.width, size.height) * 0.40f, center = Offset(size.width / 2f, size.height * 0.52f))
+            }
             .semantics { contentDescription = "${info.name} illustration" },
         contentAlignment = Alignment.Center,
     ) {
-        AsanaFigure(info.figure, Modifier.fillMaxSize().padding(Spacing.md))
+        AsanaFigure(info.figure, Modifier.fillMaxSize().padding(Spacing.md), color = accent.figure)
         if (showLabel) {
-            Tag("Static illustration", Modifier.align(Alignment.BottomStart).padding(Spacing.sm), style = TagStyle.Outline)
+            Text(
+                "Illustration", style = MaterialTheme.typography.labelMedium, color = accent.onBgMuted,
+                modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.md),
+            )
         }
     }
 }
 
-/** Library card: illustration, names, difficulty and hold time. */
+/** Library tile: full-bleed accent colour, large figure, name and hold time on the tile. */
 @Composable
 fun AsanaCard(info: AsanaInfo, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    YsCard(modifier, onClick = onClick, contentPadding = Spacing.sm) {
-        AsanaVisual(info, Modifier.fillMaxWidth().aspectRatio(1f))
-        Column(Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm)) {
-            Text(info.name, style = MaterialTheme.typography.titleMedium, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(info.sanskrit, style = MaterialTheme.typography.bodySmall, color = InkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(Spacing.sm))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DifficultyTag(info.difficulty)
-                Spacer(Modifier.weight(1f))
-                Icon(YsIcons.Clock, null, tint = InkMuted, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(2.dp))
-                Text("${info.holdSeconds.last}s", style = MaterialTheme.typography.labelMedium, color = InkMuted)
+    val accent = accentFor(info)
+    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(28.dp), color = accent.bg, contentColor = accent.onBg) {
+        Column(
+            Modifier.drawBehind {
+                val halo = if (accent.dark) Lime.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.38f)
+                drawCircle(halo, radius = size.width * 0.36f, center = Offset(size.width / 2f, size.width * 0.50f))
+            },
+        ) {
+            Box(Modifier.fillMaxWidth().aspectRatio(1.05f)) {
+                AsanaFigure(info.figure, Modifier.fillMaxSize().padding(Spacing.md), color = accent.figure)
+                Row(
+                    Modifier.align(Alignment.TopStart).padding(Spacing.sm + 4.dp)
+                        .clip(CircleShape).background(accent.onBg.copy(alpha = 0.10f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(YsIcons.Clock, null, tint = accent.onBg, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("${info.holdSeconds.last}s", style = MaterialTheme.typography.labelMedium, color = accent.onBg)
+                }
+            }
+            Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md)) {
+                Text(info.name, style = MaterialTheme.typography.titleLarge, color = accent.onBg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${info.sanskrit} · ${info.difficulty.label}", style = MaterialTheme.typography.bodySmall, color = accent.onBgMuted,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

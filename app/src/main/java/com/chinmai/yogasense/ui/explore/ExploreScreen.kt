@@ -53,7 +53,7 @@ fun ExploreScreen(onOpenAsana: (String) -> Unit, viewModel: ExploreViewModel = v
     val full: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 140.dp), // 2 columns on 360dp phones (OPPO F15)
+        columns = GridCells.Adaptive(minSize = 150.dp), // 2 columns on 360dp phones (OPPO F15)
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(Spacing.md - 4.dp),
@@ -61,8 +61,8 @@ fun ExploreScreen(onOpenAsana: (String) -> Unit, viewModel: ExploreViewModel = v
     ) {
         item(span = full) {
             Column(Modifier.padding(top = Spacing.md)) {
-                Text("Explore", style = MaterialTheme.typography.displaySmall, color = Ink)
-                Text("Poses YogaSenseAI can recognise live", style = MaterialTheme.typography.bodyMedium, color = InkMuted)
+                Text("LIBRARY", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+                Text("Find your pose", style = MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(Spacing.md))
                 OutlinedTextField(
                     value = state.query,
@@ -76,12 +76,12 @@ fun ExploreScreen(onOpenAsana: (String) -> Unit, viewModel: ExploreViewModel = v
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(28.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = CardWhite, unfocusedContainerColor = CardWhite,
-                        focusedBorderColor = Midnight, unfocusedBorderColor = Hairline,
+                        focusedBorderColor = Midnight, unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
                         focusedLeadingIconColor = Ink, unfocusedLeadingIconColor = InkMuted,
                         cursorColor = Midnight,
                     ),

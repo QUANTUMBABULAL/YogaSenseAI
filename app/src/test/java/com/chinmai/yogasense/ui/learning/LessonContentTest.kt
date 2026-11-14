@@ -48,7 +48,7 @@ class LessonContentTest {
     @Test fun skipAndContinueKeepTheSelectedAsana() {
         AsanaCatalog.all.forEach { a ->
             val l = LessonContent.of(a.id)!!
-            assertEquals("practice?asana=${a.id}", l.practiceRoute)
+            assertEquals("prepare?asana=${a.id}", l.practiceRoute)
             assertTrue(!l.practiceRoute.contains("explore"))
         }
     }
@@ -66,5 +66,8 @@ class LessonContentTest {
         assertEquals("practice?asana=WARRIOR_II", Routes.practice("WARRIOR_II"))
         assertEquals("learn/{id}", Routes.LEARN)
         assertEquals("practice?asana={asana}", Routes.PRACTICE)
+        assertEquals("prepare", Routes.prepare())
+        assertEquals("prepare?asana=TREE", Routes.prepare("TREE"))
+        assertEquals("prepare?asana={asana}", Routes.PREPARE)
     }
 }

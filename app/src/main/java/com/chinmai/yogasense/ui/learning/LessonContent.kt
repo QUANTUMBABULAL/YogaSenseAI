@@ -20,8 +20,8 @@ data class LessonContent(
 ) {
     val id: String get() = info.id
 
-    /** Both "Skip lesson" and "Continue to practice" go to live practice for this asana. */
-    val practiceRoute: String get() = Routes.practice(info.id)
+    /** Both "Skip lesson" and "Continue to practice" go to practice preparation for this asana. */
+    val practiceRoute: String get() = Routes.prepare(info.id)
 
     companion object {
         fun of(asanaId: String?): LessonContent? = AsanaCatalog.byId(asanaId)?.let { a ->
