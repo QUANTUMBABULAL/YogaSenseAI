@@ -2,6 +2,7 @@ package com.chinmai.yogasense.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,38 +16,53 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.chinmai.yogasense.ui.theme.Accent
-import com.chinmai.yogasense.ui.theme.AccentContainer
-import com.chinmai.yogasense.ui.theme.Background
-import com.chinmai.yogasense.ui.theme.Outline
+import com.chinmai.yogasense.catalog.Difficulty
+import com.chinmai.yogasense.ui.theme.CardWhite
+import com.chinmai.yogasense.ui.theme.Coral
+import com.chinmai.yogasense.ui.theme.CoralDeep
+import com.chinmai.yogasense.ui.theme.CoralTint
+import com.chinmai.yogasense.ui.theme.Hairline
+import com.chinmai.yogasense.ui.theme.Ink
+import com.chinmai.yogasense.ui.theme.InkMuted
+import com.chinmai.yogasense.ui.theme.InkSubtle
+import com.chinmai.yogasense.ui.theme.Lime
+import com.chinmai.yogasense.ui.theme.LimeDeep
+import com.chinmai.yogasense.ui.theme.LimeTint
+import com.chinmai.yogasense.ui.theme.Midnight
+import com.chinmai.yogasense.ui.theme.Radius
 import com.chinmai.yogasense.ui.theme.Spacing
-import com.chinmai.yogasense.ui.theme.Surface1
-import com.chinmai.yogasense.ui.theme.Surface2
-import com.chinmai.yogasense.ui.theme.TextMuted
-import com.chinmai.yogasense.ui.theme.TextPrimary
-import com.chinmai.yogasense.ui.theme.TextSubtle
-import com.chinmai.yogasense.ui.theme.Warn
+import com.chinmai.yogasense.ui.theme.SurfaceMuted
+import com.chinmai.yogasense.ui.theme.WarmWhite
+import com.chinmai.yogasense.ui.theme.YogaSenseAITheme
+
+private val ButtonShape = RoundedCornerShape(16.dp)
 
 // ---- Buttons ---------------------------------------------------------------------------
 
+/** Main call to action: coral with midnight label (6.4:1 contrast). */
 @Composable
-fun YsPrimaryButton(
+fun PrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -56,24 +72,20 @@ fun YsPrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 52.dp),
-        shape = CircleShape,
+        modifier = modifier.heightIn(min = 56.dp),
+        shape = ButtonShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Accent, contentColor = Background,
-            disabledContainerColor = Surface2, disabledContentColor = TextSubtle,
+            containerColor = Coral, contentColor = Midnight,
+            disabledContainerColor = SurfaceMuted, disabledContentColor = InkSubtle,
         ),
-        contentPadding = PaddingValues(horizontal = Spacing.xl, vertical = Spacing.md),
-    ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(Spacing.sm))
-        }
-        Text(text, style = MaterialTheme.typography.labelLarge)
-    }
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
+    ) { ButtonContent(text, icon) }
 }
 
+/** Outlined secondary action on light surfaces. */
 @Composable
-fun YsSecondaryButton(
+fun SecondaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -84,92 +96,138 @@ fun YsSecondaryButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = Spacing.minTouch),
-        shape = CircleShape,
-        border = BorderStroke(1.dp, if (enabled) AccentContainer.copy(alpha = 1f) else Outline),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Accent, disabledContentColor = TextSubtle),
-        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
-    ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(Spacing.sm))
-        }
-        Text(text, style = MaterialTheme.typography.labelLarge)
-    }
+        shape = ButtonShape,
+        border = BorderStroke(1.5.dp, if (enabled) Midnight else Hairline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Midnight, disabledContentColor = InkSubtle),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) { ButtonContent(text, icon) }
 }
 
-// ---- Cards -----------------------------------------------------------------------------
+@Composable
+private fun ButtonContent(text: String, icon: ImageVector?) {
+    if (icon != null) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(Spacing.sm))
+    }
+    Text(text, style = MaterialTheme.typography.labelLarge)
+}
 
-enum class CardTone { Default, Raised, Accent }
+// ---- Surfaces --------------------------------------------------------------------------
 
+enum class CardStyle { White, Muted, Dark, Lime }
+
+/** Base rounded surface (20 dp radius). Optional click with ripple and button semantics. */
 @Composable
 fun YsCard(
     modifier: Modifier = Modifier,
-    tone: CardTone = CardTone.Default,
+    style: CardStyle = CardStyle.White,
     onClick: (() -> Unit)? = null,
-    contentPadding: Dp = Spacing.lg,
+    contentPadding: Dp = Spacing.md,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val color = when (tone) { CardTone.Default -> Surface1; CardTone.Raised -> Surface2; CardTone.Accent -> AccentContainer }
-    val border = BorderStroke(1.dp, if (tone == CardTone.Accent) AccentContainer else Outline)
+    val (bg, fg) = when (style) {
+        CardStyle.White -> CardWhite to Ink
+        CardStyle.Muted -> SurfaceMuted to Ink
+        CardStyle.Dark -> Midnight to WarmWhite
+        CardStyle.Lime -> Lime to Midnight
+    }
+    val border = if (style == CardStyle.White) BorderStroke(1.dp, Hairline) else null
+    val shape = RoundedCornerShape(Radius.card)
     val inner: @Composable () -> Unit = { Column(Modifier.padding(contentPadding), content = content) }
     if (onClick != null) {
-        Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = color, border = border, content = inner)
+        Surface(onClick = onClick, modifier = modifier, shape = shape, color = bg, contentColor = fg, border = border, content = inner)
     } else {
-        Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = color, border = border, content = inner)
+        Surface(modifier = modifier, shape = shape, color = bg, contentColor = fg, border = border, content = inner)
     }
 }
 
-// ---- Headers, badges, tags -------------------------------------------------------------
+// ---- Headers, tags, badges -------------------------------------------------------------
 
 @Composable
 fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    trailing: (@Composable () -> Unit)? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text(title, style = MaterialTheme.typography.titleLarge, color = Ink)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = InkMuted)
         }
-        trailing?.invoke()
+        if (actionLabel != null && onAction != null) {
+            TextButton(onClick = onAction) { Text(actionLabel, style = MaterialTheme.typography.labelLarge, color = CoralDeep) }
+        }
     }
 }
 
-/** Icon in a soft circular container — the single icon treatment used across the app. */
+enum class TagStyle { Neutral, Lime, Coral, Dark, Outline }
+
+@Composable
+fun Tag(text: String, modifier: Modifier = Modifier, style: TagStyle = TagStyle.Neutral, icon: ImageVector? = null) {
+    val (bg, fg) = when (style) {
+        TagStyle.Neutral -> SurfaceMuted to InkMuted
+        TagStyle.Lime -> LimeTint to LimeDeep
+        TagStyle.Coral -> CoralTint to CoralDeep
+        TagStyle.Dark -> Midnight to WarmWhite
+        TagStyle.Outline -> Color.Transparent to InkMuted
+    }
+    Row(
+        modifier
+            .clip(CircleShape)
+            .background(bg)
+            .then(if (style == TagStyle.Outline) Modifier.border(1.dp, Hairline, CircleShape) else Modifier)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, null, tint = fg, modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(text, style = MaterialTheme.typography.labelMedium, color = fg)
+    }
+}
+
+@Composable
+fun DifficultyTag(difficulty: Difficulty, modifier: Modifier = Modifier) =
+    Tag(difficulty.label, modifier, style = if (difficulty == Difficulty.BEGINNER) TagStyle.Lime else TagStyle.Coral)
+
+/** "Coming soon" marker for entry points that are not functional yet. */
+@Composable
+fun ComingSoonTag(modifier: Modifier = Modifier) = Tag("Coming soon", modifier, TagStyle.Outline, YsIcons.Lock)
+
 @Composable
 fun IconBadge(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
-    tint: Color = Accent,
-    container: Color = AccentContainer,
+    tint: Color = Midnight,
+    container: Color = LimeTint,
 ) {
     Box(modifier.size(size).clip(CircleShape).background(container), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.5f))
     }
 }
 
-enum class TagTone { Neutral, Accent, Warn }
-
-/** Small label, e.g. "Coming soon" or "Sample data". */
+/** Selectable filter chip with 40 dp height and selection semantics. */
 @Composable
-fun Tag(text: String, modifier: Modifier = Modifier, tone: TagTone = TagTone.Neutral) {
-    val (bg, fg) = when (tone) {
-        TagTone.Neutral -> Surface2 to TextMuted
-        TagTone.Accent -> AccentContainer to Accent
-        TagTone.Warn -> Warn.copy(alpha = 0.14f) to Warn
+fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 40.dp),
+        shape = CircleShape,
+        color = if (selected) Midnight else CardWhite,
+        contentColor = if (selected) WarmWhite else Ink,
+        border = if (selected) null else BorderStroke(1.dp, Hairline),
+    ) {
+        Box(Modifier.padding(horizontal = Spacing.md, vertical = 10.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
     }
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = fg,
-        modifier = modifier.clip(CircleShape).background(bg).padding(horizontal = 10.dp, vertical = 4.dp),
-    )
 }
 
-// ---- Empty state & rows ----------------------------------------------------------------
+// ---- States ----------------------------------------------------------------------------
 
 @Composable
 fun EmptyState(
@@ -180,18 +238,84 @@ fun EmptyState(
     action: (@Composable () -> Unit)? = null,
 ) {
     Column(
-        modifier.fillMaxWidth().padding(vertical = Spacing.lg),
+        modifier.fillMaxWidth().padding(vertical = Spacing.md, horizontal = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        IconBadge(icon, size = 48.dp, tint = TextMuted, container = Surface2)
-        Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, textAlign = TextAlign.Center)
-        Text(message, style = MaterialTheme.typography.bodySmall, color = TextMuted, textAlign = TextAlign.Center)
+        IconBadge(icon, size = 52.dp, tint = InkMuted, container = SurfaceMuted)
+        Text(title, style = MaterialTheme.typography.titleMedium, color = Ink, textAlign = TextAlign.Center)
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = InkMuted, textAlign = TextAlign.Center)
         if (action != null) { Spacer(Modifier.size(Spacing.xs)); action() }
     }
 }
 
-/** Settings/list row with consistent icon, text and trailing slot; min 56dp touch height. */
+@Composable
+fun LoadingState(message: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().padding(Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        CircularProgressIndicator(color = Coral, trackColor = SurfaceMuted, strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = InkMuted)
+    }
+}
+
+// ---- Progress building blocks ----------------------------------------------------------
+
+/** Card with an icon header; body is either real content or an explanatory empty state. */
+@Composable
+fun ProgressCard(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    YsCard(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon, size = 36.dp)
+            Spacer(Modifier.width(Spacing.md - 4.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Ink, modifier = Modifier.weight(1f))
+            trailing?.invoke()
+        }
+        Spacer(Modifier.size(Spacing.sm))
+        content()
+    }
+}
+
+/** Single statistic; shows an em dash instead of a number when [value] is null (no data). */
+@Composable
+fun StatTile(label: String, value: String?, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(value ?: "—", style = MaterialTheme.typography.headlineSmall, color = if (value == null) InkSubtle else Ink)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+    }
+}
+
+/** Monday-first week strip. [marked] days are real practice days; [todayIndex] is outlined. */
+@Composable
+fun WeekStrip(labels: List<String>, todayIndex: Int, marked: Set<Int>, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        labels.forEachIndexed { i, label ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = if (i == todayIndex) Ink else InkMuted)
+                Spacer(Modifier.size(6.dp))
+                Box(
+                    Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(if (i in marked) Lime else SurfaceMuted)
+                        .then(if (i == todayIndex) Modifier.border(2.dp, Midnight, CircleShape) else Modifier),
+                )
+            }
+        }
+    }
+}
+
+// ---- Rows ------------------------------------------------------------------------------
+
+/** List/settings row, min 56 dp. Disabled rows are visibly muted and not clickable. */
 @Composable
 fun ListRow(
     icon: ImageVector,
@@ -204,21 +328,38 @@ fun ListRow(
 ) {
     val content: @Composable () -> Unit = {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = Spacing.sm),
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = Spacing.sm, horizontal = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon, size = 36.dp, tint = if (enabled) Accent else TextSubtle, container = if (enabled) AccentContainer else Surface2)
-            Spacer(Modifier.width(Spacing.md))
+            IconBadge(icon, size = 36.dp, tint = if (enabled) Midnight else InkSubtle, container = if (enabled) LimeTint else SurfaceMuted)
+            Spacer(Modifier.width(Spacing.md - 4.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = if (enabled) TextPrimary else TextMuted)
-                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(title, style = MaterialTheme.typography.titleSmall, color = if (enabled) Ink else InkMuted)
+                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = InkMuted)
             }
             if (trailing != null) { Spacer(Modifier.width(Spacing.sm)); trailing() }
         }
     }
     if (onClick != null && enabled) {
-        Surface(onClick = onClick, color = Color.Transparent, modifier = modifier, content = content)
+        Surface(onClick = onClick, color = Color.Transparent, shape = RoundedCornerShape(12.dp), modifier = modifier, content = content)
     } else {
         Box(modifier) { content() }
+    }
+}
+
+// ---- Previews --------------------------------------------------------------------------
+
+@Preview(showBackground = true, backgroundColor = 0xFFF5F3EE)
+@Composable
+private fun ComponentsPreview() = YogaSenseAITheme {
+    Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        PrimaryButton("Start practice", {}, icon = YsIcons.Play, modifier = Modifier.fillMaxWidth())
+        SecondaryButton("See all", {})
+        SectionHeader("Explore yoga", actionLabel = "See all", onAction = {})
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            DifficultyTag(Difficulty.BEGINNER); DifficultyTag(Difficulty.INTERMEDIATE); ComingSoonTag()
+        }
+        YsCard { EmptyState(YsIcons.Calendar, "No sessions yet", "Completed sessions will appear here.") }
+        LoadingState("Loading")
     }
 }

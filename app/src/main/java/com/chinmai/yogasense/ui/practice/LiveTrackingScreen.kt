@@ -5,45 +5,40 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.util.Log
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -55,23 +50,39 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chinmai.yogasense.asana.Asana
 import com.chinmai.yogasense.camera.CameraPreview
 import com.chinmai.yogasense.camera.CameraStatus
+import com.chinmai.yogasense.catalog.AsanaCatalog
+import com.chinmai.yogasense.coaching.VoiceState
 import com.chinmai.yogasense.pose.FramingGuidance
-import com.chinmai.yogasense.pose.FramingStatus
 import com.chinmai.yogasense.pose.InferenceStats
 import com.chinmai.yogasense.pose.PoseFrame
 import com.chinmai.yogasense.pose.PoseLandmarkerEngine
 import com.chinmai.yogasense.ui.theme.Accent
-import com.chinmai.yogasense.ui.theme.AccentDim
-import com.chinmai.yogasense.ui.theme.Surface1
+import com.chinmai.yogasense.ui.theme.Midnight
 import com.chinmai.yogasense.ui.theme.TextMuted
 import com.chinmai.yogasense.ui.theme.Warn
+import com.chinmai.yogasense.ui.theme.WarmWhite
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 
+/**
+ * Immersive live practice.
+ *
+ * Layout: the camera preview fills the whole screen. It keeps FIT_CENTER with 4:3 streams (see
+ * CameraPreview) so the full sensor field of view is shown, nothing is cropped and the skeleton maps
+ * 1:1. On tall portrait phones this leaves bands above/below the image, which the HUD and controls
+ * occupy, so they rarely cover the body.
+ *
+ * @param onClose exit action (navigation).
+ * @param targetName selected asana name for the HUD (display only).
+ * @param targetAsana selected asana for coaching content and reference; recognition still detects all poses.
+ */
 @Composable
-fun LiveTrackingScreen() {
+fun LiveTrackingScreen(onClose: (() -> Unit)? = null, targetName: String? = null, targetAsana: Asana? = null) {
     val context = LocalContext.current
     fun granted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
@@ -92,15 +103,9 @@ fun LiveTrackingScreen() {
     }
     LaunchedEffect(Unit) { if (!hasPermission && !askedOnce) launcher.launch(Manifest.permission.CAMERA) }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-    ) {
-        Header()
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
-            TrackingContent()
+            PracticeContent(onClose, targetName, targetAsana)
         } else {
             val activity = context as? Activity
             val permanentlyDenied = askedOnce && activity != null &&
@@ -114,27 +119,20 @@ fun LiveTrackingScreen() {
                     )
                 },
             )
+            if (onClose != null) {
+                Box(Modifier.statusBarsPadding().padding(12.dp)) {
+                    androidx.compose.material3.IconButton(onClick = onClose) {
+                        androidx.compose.material3.Icon(com.chinmai.yogasense.ui.components.YsIcons.Close, "Close practice", tint = WarmWhite)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Header() {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("YogaSense", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Text(" AI", color = Accent, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.weight(1f))
-        Text("Pose recognition", color = TextMuted, fontSize = 13.sp)
-    }
-}
-
-@Composable
-private fun ColumnScope.TrackingContent() {
+private fun PracticeContent(onClose: (() -> Unit)?, targetName: String?, targetAsana: Asana?) {
+    val context = LocalContext.current
     var lensFacing by rememberSaveable { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var cameraStatus by remember { mutableStateOf<CameraStatus>(CameraStatus.Starting) }
     var engine by remember { mutableStateOf<PoseLandmarkerEngine?>(null) }
@@ -145,10 +143,7 @@ private fun ColumnScope.TrackingContent() {
     val stats by statsFlow.collectAsStateWithLifecycle()
 
     // One recognizer per camera session: a new engine (lens flip, rotation, restart) => fresh state.
-    val context = LocalContext.current
-    val debugLogging = remember {
-        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    }
+    val debugLogging = remember { (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
     val controller = remember(engine) {
         engine?.let { LiveRecognitionController(log = if (debugLogging) { m -> Log.d("AsanaDebug", m) } else null) }
     }
@@ -159,110 +154,119 @@ private fun ColumnScope.TrackingContent() {
     val recFlow: StateFlow<LiveRecognitionState> = controller?.state ?: remember { MutableStateFlow(LiveRecognitionState()) }
     val recState by recFlow.collectAsStateWithLifecycle()
 
-    Box(
-        Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.Black)
-    ) {
-        CameraPreview(
-            lensFacing = lensFacing,
-            onEngineReady = { engine = it },
-            onStatus = { cameraStatus = it },
-            modifier = Modifier.fillMaxSize(),
-        )
-        SkeletonOverlay(
-            frame = frame,
-            mirror = lensFacing == CameraSelector.LENS_FACING_FRONT,
-            modifier = Modifier.fillMaxSize(),
-        )
-        StatusChips(cameraStatus, stats, frame, Modifier.align(Alignment.TopStart).padding(12.dp))
-        (cameraStatus as? CameraStatus.Error)?.let {
-            Text(
-                it.message,
-                color = Warn,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).padding(24.dp),
-            )
+    // One coaching session per practice screen; TextToSpeech is created once and released on exit.
+    val session = remember { PracticeSession(context, targetAsana, SystemClock.uptimeMillis()) }
+    DisposableEffect(session) { onDispose { session.release() } }
+    val ui by session.ui.collectAsStateWithLifecycle()
+    val coach by session.coachSettings.collectAsStateWithLifecycle()
+    val visual by session.visualSettings.collectAsStateWithLifecycle()
+    val voice: VoiceState by session.voice.state.collectAsStateWithLifecycle()
+
+    // Snapshots from real recognition + framing feed the coach (main thread; lightweight).
+    LaunchedEffect(session, controller, engine) {
+        val e = engine ?: return@LaunchedEffect
+        val c = controller ?: return@LaunchedEffect
+        combine(c.state, e.frames) { r, f -> r.recognition to f }.collect { (r, f) ->
+            session.onSnapshot(f, r, SystemClock.uptimeMillis())
         }
     }
-    AsanaCard(recState, poseVisible = frame?.hasPose == true)
-    GuidanceBar(
-        status = FramingGuidance.evaluate(frame),
-        stats = stats,
-        onFlip = {
-            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT
-            else CameraSelector.LENS_FACING_BACK
-        },
-    )
-}
+    var nowMs by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
+    LaunchedEffect(session) {
+        while (true) {
+            nowMs = SystemClock.uptimeMillis()
+            session.tick(nowMs)
+            delay(1000)
+        }
+    }
+    // Auto-pause when the app goes to the background; the user resumes explicitly.
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner, session) {
+        val obs = LifecycleEventObserver { _, ev -> if (ev == Lifecycle.Event.ON_PAUSE) session.pause(SystemClock.uptimeMillis()) }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
+    }
 
-@Composable
-private fun StatusChips(camera: CameraStatus, stats: InferenceStats, frame: PoseFrame?, modifier: Modifier) {
-    val camText = when (camera) {
-        CameraStatus.Starting -> "Camera starting"
-        CameraStatus.Active -> "Camera on"
-        is CameraStatus.Error -> "Camera error"
-    }
-    val poseText = when {
-        stats.error != null && !stats.ready -> "Model error"
-        !stats.ready -> "Loading model"
-        frame?.hasPose == true -> "Pose tracked"
-        else -> "No pose"
-    }
-    val valid = FramingGuidance.reliableCount(frame)
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Chip(camText, camera is CameraStatus.Active)
-        Chip(poseText, frame?.hasPose == true)
-        Chip("%.1f inference FPS".format(stats.inferenceFps), stats.inferenceFps >= 15f)
-        Chip("$valid / 33 landmarks", valid >= 25)
-    }
-}
+    var sheet by remember { mutableStateOf<PracticeSheet?>(null) }
+    val targetInfo = targetAsana?.let { AsanaCatalog.of(it) }
+    val currentClose by rememberUpdatedState(onClose)
 
-@Composable
-private fun Chip(text: String, good: Boolean) {
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(50))
-            .background(Color(0xB3101512))
-            .border(1.dp, if (good) AccentDim else Color(0x33FFFFFF), RoundedCornerShape(50))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(if (good) Accent else Warn))
-        Spacer(Modifier.size(6.dp))
-        Text(text, color = Color.White, fontSize = 12.sp)
-    }
-}
-
-@Composable
-private fun GuidanceBar(status: FramingStatus, stats: InferenceStats, onFlip: () -> Unit) {
-    val ok = status == FramingStatus.FULL_BODY
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(12.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Surface1)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(status.message, color = if (ok) Accent else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                if (ok) "Hold still to keep tracking steady." else "Place the phone at hip height, 2–3 m away, so head to feet fit inside the frame.",
-                color = TextMuted,
-                fontSize = 12.sp,
+    // The camera surface takes all space between the top HUD and the bottom controls. FIT_CENTER
+    // (4:3) inside that area shows the whole field of view and keeps every overlay off the body,
+    // on any portrait aspect ratio. Preview and skeleton share the same box, so mapping stays exact.
+    Column(Modifier.fillMaxSize().background(Color.Black)) {
+        Column(Modifier.fillMaxWidth().statusBarsPadding()) {
+            TopHud(
+                targetName = targetName,
+                camera = cameraStatus,
+                recognitionLabel = PracticeGuidance.recognitionLabel(recState.recognition),
+                recognised = recState.recognition.isStable,
+                voiceMode = coach.mode,
+                voiceStatus = voice.status,
+                speaking = voice.speaking,
+                onClose = currentClose,
+                onFlip = {
+                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT
+                    else CameraSelector.LENS_FACING_BACK
+                },
             )
-            if (stats.ready && stats.latencyMs > 0) {
-                Text("Latency ${stats.latencyMs} ms", color = TextMuted, fontSize = 11.sp)
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            CameraPreview(
+                lensFacing = lensFacing,
+                onEngineReady = { engine = it },
+                onStatus = { cameraStatus = it },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (visual.liveSkeleton) {
+                SkeletonOverlay(
+                    frame = frame,
+                    mirror = lensFacing == CameraSelector.LENS_FACING_FRONT,
+                    highlightWeak = visual.correctionHighlights,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
+            // Developer diagnostics may overlap the image; they are off by default.
+            if (visual.diagnostics) DiagnosticsPanel(cameraStatus, stats, frame, recState, Modifier.align(Alignment.TopStart))
         }
-        Spacer(Modifier.size(12.dp))
-        OutlinedButton(onClick = onFlip) { Text("Flip", color = Accent) }
+
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val guidance = PracticeGuidance.of(
+                cameraStatus, frame?.hasPose == true, FramingGuidance.evaluate(frame),
+                recState.recognition, ui.live, ui.paused,
+            )
+            if (recState.recognition.isStable && !ui.paused) AssessmentStrip(ui.live)
+            val spoken = ui.lastCue?.takeIf { nowMs - ui.lastCueAtMs < 6_000 }?.text
+            GuidancePanel(
+                guidance,
+                PracticeGuidance.caption(spoken, guidance.text),
+                reference = targetInfo?.takeIf { visual.referenceFigure },
+            )
+            PracticeControls(
+                elapsedMs = ui.elapsedMs,
+                paused = ui.paused,
+                onPauseToggle = { val t = SystemClock.uptimeMillis(); if (ui.paused) session.resume(t) else session.pause(t) },
+                onVoice = { sheet = PracticeSheet.Voice },
+                onVisual = { sheet = PracticeSheet.Visual },
+                onEnd = { session.end(SystemClock.uptimeMillis()) },
+            )
+        }
+    }
+
+    sheet?.let { s ->
+        PracticeSettingsSheet(
+            sheet = s, coach = coach, visual = visual, voiceStatus = voice.status, hasTarget = targetInfo != null,
+            onCoach = session::updateCoach, onVisual = session::updateVisual, onDismiss = { sheet = null },
+        )
+    }
+    ui.summary?.let { summary ->
+        SessionSummaryDialog(
+            summary,
+            onDone = { currentClose?.invoke() ?: session.continueAfterSummary(SystemClock.uptimeMillis()) },
+            onContinue = { session.continueAfterSummary(SystemClock.uptimeMillis()) },
+        )
     }
 }
 
@@ -271,6 +275,7 @@ private fun PermissionState(permanentlyDenied: Boolean, onRequest: () -> Unit, o
     Column(
         Modifier
             .fillMaxSize()
+            .background(Midnight)
             .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -296,3 +301,4 @@ private fun PermissionState(permanentlyDenied: Boolean, onRequest: () -> Unit, o
         }
     }
 }
+

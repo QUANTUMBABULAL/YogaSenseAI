@@ -56,6 +56,41 @@ Time budget assumes ~40 working hours across two devs. Dev A = vision pipeline, 
 - Demo script: onboarding → check-in → practice 2–3 asanas with live coaching → dashboard → weekly report → concerning-response flow.
 - **Exit:** M7.
 
+## Status log (as delivered)
+
+> Delivery order diverged from the original numbering above. "Phase N" in this log refers to the
+> delivered milestone, not the section headings above.
+
+- **Phase 2 — Camera + MediaPipe:** done; on-device (OPPO F15) 33/33 landmarks standing, 5.4–8.9 inference FPS.
+- **Phase 3 / 3.1 — Recognition + live integration:** done; synthetic-fixture tests only. Real-person validation still pending (first device log contained no full-body frames).
+- **Phase 4 — UI/UX redesign (2026-11-13):** done. Light brand theme (Midnight / Coral / Lime / Warm white) for Home,
+  Explore, Asana detail, Progress, Profile; dark `PracticeTheme` for the existing live practice screen.
+  Navigation Compose 2.9.6 with 4 bottom tabs + full-screen Asana detail and Live Practice routes.
+  Structured `catalog/AsanaCatalog` (5 asanas) with working search/filters. `data/PracticeHistoryRepository`
+  seam (empty implementation) for Room later. No fabricated history. See `PHASE4_UI_TEST_REPORT.md`.
+- **Phase 5 — Animated learning (2026-11-13):** done, waiting for video assets. `PoseLearningScreen` (route
+  `learn/{id}`) with one reusable `AsanaAnimationPlayer` (Media3 1.10.1 for bundled MP4; keyframe animated
+  illustration fallback; static fallback). Catalogue extended with breathing, common mistakes, demo keyframes
+  and `assets/asana/<key>.mp4` references. Detail → Start learning → Skip/Continue → `practice?asana={id}`.
+  **No demonstration videos are bundled yet** — all five lessons currently show the labelled animated
+  illustration. See `PHASE5_LEARNING_TEST_REPORT.md`.
+- **Phase 5.2 — Immersive practice + voice coaching (2026-11-14):** done (emulator-verified; OPPO not yet).
+  Full-screen camera between a floating top HUD and bottom controls (FIT_CENTER 4:3, no crop), single
+  framing/recognition guidance line, pause/resume, session timer, end-of-session summary, voice + visual
+  settings sheets (persisted in SharedPreferences), diagnostics panel. `coaching/` package: pure
+  `CoachingEventSource` + `CoachingDecisionEngine`, Android `VoiceCoachManager` (TextToSpeech). Alignment
+  corrections flow through `AlignmentAssessor`, which has no implementation yet. See `PHASE5_2_PRACTICE_TEST_REPORT.md`.
+- **Phase 6 — Alignment, stability and hold assessment (2026-11-14):** implemented and unit-tested on synthetic
+  fixtures; **not device-tested** (no device connected). `coaching/assessment/`: per-asana prototype heuristic
+  profiles, explainable 0–100 alignment score (null when not enough reliable metrics), temporal stability
+  (body-centre sway in torso lengths), stable-hold tracker, one-at-a-time corrections and measured
+  improvement events wired into the existing coaching engine and TTS. Live HUD strip + richer session summary.
+  See `PHASE6_ASSESSMENT_TEST_REPORT.md`. Real-person validation and threshold tuning still required.
+- **Next (former Phase 6 note, superseded):** add licensed/self-recorded MP4s (no code change needed), practice preparation that uses
+  the selected asana, then scoring/coaching/Room per the original plan.
+- **Still open from the original plan:** alignment/stability/hold/symmetry scoring, coaching + TTS, Room,
+  check-ins, PHQ-9/GAD-7, dashboard data, weekly report.
+
 ## Proposed minimal package structure
 
 ```

@@ -1,8 +1,8 @@
 package com.chinmai.yogasense.ui.home
 
-import com.chinmai.yogasense.asana.Asana
+import com.chinmai.yogasense.catalog.AsanaCatalog
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
@@ -23,29 +23,27 @@ class HomeStateFactoryTest {
     }
 
     @Test fun dateAndMondayFirstWeek() {
-        // Thursday 12 November 2026
-        val s = HomeStateFactory.create(millis(2026, Calendar.NOVEMBER, 12, 9), tz, Locale.US)
+        val s = HomeStateFactory.create(millis(2026, Calendar.NOVEMBER, 12, 9), tz, Locale.US) // Thursday
         assertEquals("Thursday, 12 November", s.dateLabel)
-        assertEquals(listOf("M", "T", "W", "T", "F", "S", "S"), s.weekDays.map { it.label })
-        assertEquals(3, s.weekDays.indexOfFirst { it.isToday })
-        assertEquals(1, s.weekDays.count { it.isToday })
+        assertEquals(listOf("M", "T", "W", "T", "F", "S", "S"), s.weekLabels)
+        assertEquals(3, s.todayIndex)
     }
 
     @Test fun sundayIsLastDayOfWeek() {
         val s = HomeStateFactory.create(millis(2026, Calendar.NOVEMBER, 15, 9), tz, Locale.US)
-        assertEquals(6, s.weekDays.indexOfFirst { it.isToday })
+        assertEquals(6, s.todayIndex)
     }
 
     @Test fun noFabricatedHistory() {
         val s = HomeStateFactory.create(millis(2026, Calendar.NOVEMBER, 12, 9), tz, Locale.US)
-        assertEquals(0, s.sessionsThisWeek)
-        assertFalse(s.hasPracticeHistory)
-        assertFalse(s.hasCheckIns)
-        assertTrue(s.weekDays.none { it.practiced })
+        assertNull(s.weekly)
+        assertTrue(s.recent.isEmpty())
     }
 
-    @Test fun recommendedFlowCoversSupportedAsanasOnly() {
-        val asanas = HomeUiState.FOUNDATIONS_FLOW.map { it.asana }.toSet()
-        assertEquals(Asana.entries.toSet() - Asana.UNKNOWN, asanas)
+    @Test fun featuredRotatesThroughCatalogueDeterministically() {
+        val picks = (1..AsanaCatalog.all.size).map { HomeStateFactory.featuredFor(it) }.toSet()
+        assertEquals(AsanaCatalog.all.toSet(), picks)
+        assertEquals(HomeStateFactory.featuredFor(40), HomeStateFactory.featuredFor(40))
+        assertEquals(AsanaCatalog.all, HomeStateFactory.create(0L, tz, Locale.US).explore)
     }
 }

@@ -52,6 +52,14 @@ class FramingGuidanceTest {
         assertEquals(FramingStatus.TOO_FAR, FramingGuidance.evaluate(frame(lm)))
     }
 
+    @Test fun offCentreGivesDirectionInUsersOwnFrame() {
+        // Hips near image-left: the user (facing the camera) must step to their own left.
+        val left = standing().map { it.copy(x = it.x - 0.36f) }
+        assertEquals(FramingStatus.STEP_LEFT, FramingGuidance.evaluate(frame(left)))
+        val right = standing().map { it.copy(x = it.x + 0.36f) }
+        assertEquals(FramingStatus.STEP_RIGHT, FramingGuidance.evaluate(frame(right)))
+    }
+
     @Test fun connectionsReferenceValidIndices() {
         assertTrue(L.CONNECTIONS.all { (a, b) -> a in 0 until L.COUNT && b in 0 until L.COUNT })
     }

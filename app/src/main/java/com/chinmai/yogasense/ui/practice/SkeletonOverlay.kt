@@ -21,6 +21,8 @@ private val WeakBone = Color(0x66F5C26B)
  * Draws the skeleton over a PreviewView that uses FIT_CENTER. The image is letterboxed the same
  * way here so normalized landmarks map to the same pixels as the preview.
  * Low-confidence points are drawn amber and small; points below [hideBelow] are not drawn.
+ * [highlightWeak] (visual correction highlights): when true, low-confidence key joints are drawn
+ * amber with a ring so the user sees what the camera cannot see; when false only reliable joints show.
  */
 @Composable
 fun SkeletonOverlay(
@@ -28,6 +30,7 @@ fun SkeletonOverlay(
     mirror: Boolean,
     modifier: Modifier = Modifier,
     hideBelow: Float = 0.2f,
+    highlightWeak: Boolean = true,
 ) {
     Canvas(modifier) {
         if (frame == null || !frame.hasPose || frame.imageWidth == 0 || frame.imageHeight == 0) return@Canvas
@@ -50,6 +53,7 @@ fun SkeletonOverlay(
             val c = min(conf(la), conf(lb))
             if (c < hideBelow) continue
             val reliable = la.isReliable() && lb.isReliable()
+            if (!reliable && !highlightWeak) continue
             drawLine(
                 color = if (reliable) ReliableBone else WeakBone,
                 start = map(la),
@@ -62,9 +66,24 @@ fun SkeletonOverlay(
         for (l in lm) {
             if (conf(l) < hideBelow) continue
             val reliable = l.isReliable()
+            if (!reliable && !highlightWeak) continue
             val p = map(l)
             drawCircle(Color.Black.copy(alpha = 0.45f), radius = if (reliable) r + 2f else r * 0.7f + 2f, center = p)
             drawCircle(if (reliable) ReliableJoint else WeakJoint, radius = if (reliable) r else r * 0.7f, center = p)
         }
+        if (highlightWeak) {
+            val ring = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+            for (i in KEY_JOINTS) {
+                val l = lm[i]
+                if (l.isReliable() || conf(l) < hideBelow) continue
+                drawCircle(WeakJoint, radius = r * 2.6f, center = map(l), style = ring)
+            }
+        }
     }
 }
+
+private val KEY_JOINTS = intArrayOf(
+    PoseLandmarkIndex.LEFT_SHOULDER, PoseLandmarkIndex.RIGHT_SHOULDER, PoseLandmarkIndex.LEFT_ELBOW, PoseLandmarkIndex.RIGHT_ELBOW,
+    PoseLandmarkIndex.LEFT_WRIST, PoseLandmarkIndex.RIGHT_WRIST, PoseLandmarkIndex.LEFT_HIP, PoseLandmarkIndex.RIGHT_HIP,
+    PoseLandmarkIndex.LEFT_KNEE, PoseLandmarkIndex.RIGHT_KNEE, PoseLandmarkIndex.LEFT_ANKLE, PoseLandmarkIndex.RIGHT_ANKLE,
+)

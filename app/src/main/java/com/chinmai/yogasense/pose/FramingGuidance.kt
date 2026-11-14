@@ -3,13 +3,15 @@ package com.chinmai.yogasense.pose
 import com.chinmai.yogasense.pose.PoseLandmarkIndex as L
 
 enum class FramingStatus(val message: String) {
-    NO_BODY("Move into frame"),
-    SHOW_HEAD("Step back so your head is visible"),
-    SHOW_FEET("Step back so your feet are visible"),
-    TOO_CLOSE("Step back a little"),
+    NO_BODY("Step into the camera view"),
+    SHOW_HEAD("Move back so your head is visible"),
+    SHOW_FEET("Keep your feet visible — move back a little"),
+    TOO_CLOSE("Move back to fit your entire body"),
     TOO_FAR("Move a little closer"),
-    OFF_CENTER("Move to the centre of the frame"),
-    FULL_BODY("Body detected — full body in frame"),
+    /** Directions are in the user's own frame (facing the camera), valid for both lenses. */
+    STEP_LEFT("Step slightly to your left"),
+    STEP_RIGHT("Step slightly to your right"),
+    FULL_BODY("Full body in view"),
 }
 
 /** Pure framing check over a [PoseFrame]; no Android dependencies so it is unit-testable. */
@@ -39,7 +41,10 @@ object FramingGuidance {
         if (height < 0.35f) return FramingStatus.TOO_FAR
 
         val centreX = (lm[L.LEFT_HIP].x + lm[L.RIGHT_HIP].x) / 2f
-        if (centreX < 0.2f || centreX > 0.8f) return FramingStatus.OFF_CENTER
+        // Landmarks are un-mirrored: a user facing the camera appears with their LEFT side at larger x.
+        // Hips near image-left => the user must move toward image-right, i.e. to their own left.
+        if (centreX < 0.2f) return FramingStatus.STEP_LEFT
+        if (centreX > 0.8f) return FramingStatus.STEP_RIGHT
         return FramingStatus.FULL_BODY
     }
 

@@ -1,107 +1,165 @@
 package com.chinmai.yogasense.ui.navigation
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.chinmai.yogasense.ui.asanadetail.AsanaDetailScreen
+import com.chinmai.yogasense.ui.components.BottomNavItem
+import com.chinmai.yogasense.ui.components.BottomNavigationBar
 import com.chinmai.yogasense.ui.components.YsIcons
+import com.chinmai.yogasense.ui.explore.ExploreScreen
 import com.chinmai.yogasense.ui.home.HomeScreen
+import com.chinmai.yogasense.ui.learning.PoseLearningScreen
+import com.chinmai.yogasense.catalog.AsanaCatalog
 import com.chinmai.yogasense.ui.practice.LiveTrackingScreen
 import com.chinmai.yogasense.ui.profile.ProfileScreen
 import com.chinmai.yogasense.ui.progress.ProgressScreen
-import com.chinmai.yogasense.ui.theme.Accent
-import com.chinmai.yogasense.ui.theme.AccentContainer
-import com.chinmai.yogasense.ui.theme.Background
-import com.chinmai.yogasense.ui.theme.Surface1
-import com.chinmai.yogasense.ui.theme.TextMuted
+import com.chinmai.yogasense.ui.theme.PracticeTheme
+import com.chinmai.yogasense.ui.theme.SystemBarIcons
+import com.chinmai.yogasense.ui.theme.WarmWhite
 
-enum class AppDestination(val label: String, val icon: ImageVector) {
-    HOME("Home", YsIcons.Home),
-    PRACTICE("Practice", YsIcons.Practice),
-    PROGRESS("Progress", YsIcons.Progress),
-    PROFILE("Profile", YsIcons.Profile),
+
+private val tabs = listOf(
+    BottomNavItem(Routes.HOME, "Home", YsIcons.Home),
+    BottomNavItem(Routes.EXPLORE, "Explore", YsIcons.Explore),
+    BottomNavItem(Routes.PROGRESS, "Progress", YsIcons.Progress),
+    BottomNavItem(Routes.PROFILE, "Profile", YsIcons.Profile),
+)
+private val tabRoutes = tabs.map { it.route }.toSet()
+
+/** Switch tabs keeping one Home-rooted back stack and each tab's saved state. */
+private fun NavHostController.navigateToTab(route: String) = navigate(route) {
+    popUpTo(graph.findStartDestination().id) { saveState = true }
+    launchSingleTop = true
+    restoreState = true
 }
 
 /**
- * App shell: four top-level tabs with state-based navigation (no extra dependency).
- * - Selected tab survives rotation/process death (rememberSaveable).
- * - Each tab's saveable UI state (e.g. scroll) is kept via a SaveableStateHolder.
- * - Practice hosts the existing LiveTrackingScreen unchanged; leaving the tab disposes it,
- *   which unbinds CameraX and closes MediaPipe through its existing DisposableEffect.
- * - Back from any tab returns to Home; back on Home exits.
+ * App shell.
+ * - Four bottom tabs (Home, Explore, Progress, Profile); back from a tab returns to Home.
+ * - Asana detail and Live Practice are full-screen destinations without the bottom bar.
+ * - Live Practice hosts the existing LiveTrackingScreen inside the dark PracticeTheme; leaving it
+ *   disposes the screen, which releases CameraX and MediaPipe through its own DisposableEffect.
  */
 @Composable
 fun YogaSenseApp() {
-    var current by rememberSaveable { mutableStateOf(AppDestination.HOME) }
-    val holder = rememberSaveableStateHolder()
-    BackHandler(enabled = current != AppDestination.HOME) { current = AppDestination.HOME }
+    val nav = rememberNavController()
+    val entry by nav.currentBackStackEntryAsState()
+    val route = entry?.destination?.route
+    val showBar = route in tabRoutes
 
     Scaffold(
-        containerColor = Background,
+        containerColor = WarmWhite,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // each screen handles its own system-bar insets
         bottomBar = {
-            NavigationBar(containerColor = Surface1) {
-                AppDestination.entries.forEach { d ->
-                    NavigationBarItem(
-                        selected = d == current,
-                        onClick = { current = d },
-                        icon = { Icon(d.icon, contentDescription = null) },
-                        label = { Text(d.label, style = MaterialTheme.typography.labelMedium) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Accent,
-                            selectedTextColor = Accent,
-                            indicatorColor = AccentContainer,
-                            unselectedIconColor = TextMuted,
-                            unselectedTextColor = TextMuted,
-                        ),
-                    )
-                }
+            AnimatedVisibility(showBar, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+                BottomNavigationBar(tabs, route) { nav.navigateToTab(it.route) }
             }
         },
     ) { inner ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(inner)
-                .consumeWindowInsets(inner),
+        NavHost(
+            navController = nav,
+            startDestination = Routes.HOME,
+            modifier = Modifier.fillMaxSize().padding(inner).consumeWindowInsets(inner),
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(150)) },
         ) {
-            AnimatedContent(
-                targetState = current,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "tab",
-            ) { dest ->
-                holder.SaveableStateProvider(dest.name) {
-                    when (dest) {
-                        AppDestination.HOME -> HomeScreen(
-                            onStartPractice = { current = AppDestination.PRACTICE },
-                            onOpenProgress = { current = AppDestination.PROGRESS },
-                        )
-                        AppDestination.PRACTICE -> LiveTrackingScreen()
-                        AppDestination.PROGRESS -> ProgressScreen(onStartPractice = { current = AppDestination.PRACTICE })
-                        AppDestination.PROFILE -> ProfileScreen()
+            composable(Routes.HOME) {
+                SystemBarIcons(darkIcons = true)
+                HomeScreen(
+                    onStartPractice = { nav.navigate(Routes.practice()) },
+                    onOpenAsana = { nav.navigate(Routes.asana(it)) },
+                    onOpenExplore = { nav.navigateToTab(Routes.EXPLORE) },
+                    onOpenProfile = { nav.navigateToTab(Routes.PROFILE) },
+                )
+            }
+            composable(Routes.EXPLORE) {
+                SystemBarIcons(darkIcons = true)
+                ExploreScreen(onOpenAsana = { nav.navigate(Routes.asana(it)) })
+            }
+            composable(Routes.PROGRESS) {
+                SystemBarIcons(darkIcons = true)
+                ProgressScreen(onStartPractice = { nav.navigate(Routes.practice()) })
+            }
+            composable(Routes.PROFILE) {
+                SystemBarIcons(darkIcons = true)
+                ProfileScreen()
+            }
+            composable(
+                Routes.ASANA,
+                arguments = listOf(navArgument(Routes.ARG_ID) { type = NavType.StringType }),
+                enterTransition = { slideInHorizontally(tween(250)) { it / 3 } + fadeIn(tween(250)) },
+                popExitTransition = { slideOutHorizontally(tween(200)) { it / 3 } + fadeOut(tween(200)) },
+            ) { e ->
+                SystemBarIcons(darkIcons = true)
+                AsanaDetailScreen(
+                    asanaId = e.arguments?.getString(Routes.ARG_ID),
+                    onBack = { nav.popBackStack() },
+                    onStartLearning = { nav.navigate(Routes.learn(it.id)) },
+                    onPracticeNow = { nav.navigate(Routes.practice(it.id)) },
+                )
+            }
+            composable(
+                Routes.LEARN,
+                arguments = listOf(navArgument(Routes.ARG_ID) { type = NavType.StringType }),
+                enterTransition = { slideInHorizontally(tween(250)) { it / 3 } + fadeIn(tween(250)) },
+                popExitTransition = { slideOutHorizontally(tween(200)) { it / 3 } + fadeOut(tween(200)) },
+            ) { e ->
+                SystemBarIcons(darkIcons = true)
+                // Skip and Continue both replace the lesson with practice, so Back from practice
+                // returns to the asana detail page (never to Explore).
+                val toPractice: (String) -> Unit = { route ->
+                    nav.navigate(route) { popUpTo(Routes.LEARN) { inclusive = true } }
+                }
+                PoseLearningScreen(
+                    asanaId = e.arguments?.getString(Routes.ARG_ID),
+                    onBack = { nav.popBackStack() },
+                    onSkip = { toPractice(it.practiceRoute) },
+                    onContinue = { toPractice(it.practiceRoute) },
+                )
+            }
+            composable(
+                Routes.PRACTICE,
+                arguments = listOf(navArgument(Routes.ARG_ASANA) { type = NavType.StringType; nullable = true; defaultValue = null }),
+                enterTransition = { slideInVertically(tween(280)) { it / 4 } + fadeIn(tween(280)) },
+                popExitTransition = { fadeOut(tween(180)) },
+                popEnterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+            ) { e ->
+                SystemBarIcons(darkIcons = false)
+                // The selected asana is shown as the practice target only; recognition still
+                // detects all five supported poses and does not use this argument.
+                val target = AsanaCatalog.byId(e.arguments?.getString(Routes.ARG_ASANA))
+                PracticeTheme {
+                    Box(Modifier.fillMaxSize()) {
+                        LiveTrackingScreen(onClose = { nav.popBackStack() }, targetName = target?.name, targetAsana = target?.asana)
                     }
                 }
             }
         }
     }
 }
-

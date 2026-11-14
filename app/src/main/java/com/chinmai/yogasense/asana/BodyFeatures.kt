@@ -120,6 +120,31 @@ class BodyFeatures(frame: PoseFrame, private val threshold: Float = Landmark.DEF
         ?.takeIf { Geometry.dist(it.first, it.second) > 1f }
         ?.let { 90f - Geometry.fromHorizontalDeg(it.first, it.second) }
 
+    // ---- Assessment helpers (Phase 6; additive, not used by recognition) ----------------------
+
+    /** Mid-shoulder / mid-hip points in pixel space (null if either side is unreliable). */
+    val midShoulderPoint: Pt? get() = midShoulder
+    val midHipPoint: Pt? get() = midHip
+
+    /** Shoulder line angle from horizontal, 0..90 (0 = level). Mirror-invariant. */
+    val shoulderLineTilt: Float? = both(shoulder(BodySide.LEFT), shoulder(BodySide.RIGHT))
+        ?.takeIf { Geometry.dist(it.first, it.second) > 1f }?.let { Geometry.fromHorizontalDeg(it.first, it.second) }
+
+    /** Hip line angle from horizontal, 0..90 (0 = level). Mirror-invariant. */
+    val hipLineTilt: Float? = both(hipPt(BodySide.LEFT), hipPt(BodySide.RIGHT))
+        ?.takeIf { Geometry.dist(it.first, it.second) > 1f }?.let { Geometry.fromHorizontalDeg(it.first, it.second) }
+
+    /** Horizontal offset of mid-shoulder from mid-ankle / torso length (0 = shoulders stacked over feet). */
+    val lateralLean: Float? = both(midShoulder, both(ankle(BodySide.LEFT), ankle(BodySide.RIGHT))?.let { Geometry.mid(it.first, it.second) })
+        ?.let { norm(abs(it.first.x - it.second.x)) }
+
+    /** Hip→knee line angle from straight down, 0..180 (0 = thigh vertical, 90 = thigh horizontal). */
+    fun thighFromVertical(s: BodySide): Float? {
+        val hp = hipPt(s) ?: return null; val kn = kneePt(s) ?: return null
+        if (Geometry.dist(hp, kn) < 1f) return null
+        return Math.toDegrees(atan2(abs(kn.x - hp.x).toDouble(), (kn.y - hp.y).toDouble())).toFloat()
+    }
+
     private fun angle(a: Pt?, b: Pt?, c: Pt?): Float? =
         if (a == null || b == null || c == null) null else Geometry.angleDeg(a, b, c)
 

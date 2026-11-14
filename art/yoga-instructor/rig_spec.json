@@ -1,0 +1,474 @@
+{
+  "units": "character units (SVG user units); neutral full height ~ 990",
+  "angle_convention": "SVG rotate(): degrees, positive = clockwise on screen, 0 = limb pointing straight down (torso/neck/head: 0 = upright). Child angles are relative to the parent.",
+  "side_convention": "L/R = the instructor's own left/right. In the front view the instructor faces the viewer, so *_L parts are on the viewer's right.",
+  "segment_lengths": {
+    "upper_arm": 160,
+    "forearm": 145,
+    "hand": 70,
+    "thigh": 225,
+    "shin": 220,
+    "torso": 250,
+    "neck": 36
+  },
+  "hierarchy": "pelvis(root) -> [thigh_L/R -> shin -> foot], torso -> [neck -> head, upper_arm_L/R -> forearm -> hand]",
+  "front_neutral": {
+    "pose": {
+      "upper_arm_L": -9,
+      "upper_arm_R": 9,
+      "forearm_L": -3,
+      "forearm_R": 3,
+      "thigh_L": -1.5,
+      "thigh_R": 1.5
+    },
+    "joints": [
+      {
+        "part": "pelvis",
+        "parent": null,
+        "local_pivot": [
+          300,
+          540
+        ],
+        "global_pivot": [
+          300.0,
+          540.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "thigh_R",
+        "parent": "pelvis",
+        "local_pivot": [
+          -38,
+          8
+        ],
+        "global_pivot": [
+          262.0,
+          548.0
+        ],
+        "angle": 1.5
+      },
+      {
+        "part": "shin_R",
+        "parent": "thigh_R",
+        "local_pivot": [
+          0,
+          225
+        ],
+        "global_pivot": [
+          256.1,
+          772.9
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "foot_R",
+        "parent": "shin_R",
+        "local_pivot": [
+          0,
+          220
+        ],
+        "global_pivot": [
+          250.4,
+          992.8
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "thigh_L",
+        "parent": "pelvis",
+        "local_pivot": [
+          38,
+          8
+        ],
+        "global_pivot": [
+          338.0,
+          548.0
+        ],
+        "angle": -1.5
+      },
+      {
+        "part": "shin_L",
+        "parent": "thigh_L",
+        "local_pivot": [
+          0,
+          225
+        ],
+        "global_pivot": [
+          343.9,
+          772.9
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "foot_L",
+        "parent": "shin_L",
+        "local_pivot": [
+          0,
+          220
+        ],
+        "global_pivot": [
+          349.6,
+          992.8
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "torso",
+        "parent": "pelvis",
+        "local_pivot": [
+          0,
+          -62
+        ],
+        "global_pivot": [
+          300.0,
+          478.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "upper_arm_R",
+        "parent": "torso",
+        "local_pivot": [
+          -70,
+          -226
+        ],
+        "global_pivot": [
+          230.0,
+          252.0
+        ],
+        "angle": 9
+      },
+      {
+        "part": "forearm_R",
+        "parent": "upper_arm_R",
+        "local_pivot": [
+          0,
+          160
+        ],
+        "global_pivot": [
+          205.0,
+          410.0
+        ],
+        "angle": 3
+      },
+      {
+        "part": "hand_R",
+        "parent": "forearm_R",
+        "local_pivot": [
+          0,
+          145
+        ],
+        "global_pivot": [
+          174.8,
+          551.9
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "upper_arm_L",
+        "parent": "torso",
+        "local_pivot": [
+          70,
+          -226
+        ],
+        "global_pivot": [
+          370.0,
+          252.0
+        ],
+        "angle": -9
+      },
+      {
+        "part": "forearm_L",
+        "parent": "upper_arm_L",
+        "local_pivot": [
+          0,
+          160
+        ],
+        "global_pivot": [
+          395.0,
+          410.0
+        ],
+        "angle": -3
+      },
+      {
+        "part": "hand_L",
+        "parent": "forearm_L",
+        "local_pivot": [
+          0,
+          145
+        ],
+        "global_pivot": [
+          425.2,
+          551.9
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "neck",
+        "parent": "torso",
+        "local_pivot": [
+          0,
+          -250
+        ],
+        "global_pivot": [
+          300.0,
+          228.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "head",
+        "parent": "neck",
+        "local_pivot": [
+          0,
+          -26
+        ],
+        "global_pivot": [
+          300.0,
+          202.0
+        ],
+        "angle": 0.0
+      }
+    ]
+  },
+  "side_neutral": {
+    "pose": {
+      "upper_arm_L": 4,
+      "upper_arm_R": -2,
+      "forearm_L": -6,
+      "forearm_R": -4
+    },
+    "joints": [
+      {
+        "part": "pelvis",
+        "parent": null,
+        "local_pivot": [
+          300,
+          540
+        ],
+        "global_pivot": [
+          300.0,
+          540.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "thigh_R",
+        "parent": "pelvis",
+        "local_pivot": [
+          -6,
+          8
+        ],
+        "global_pivot": [
+          294.0,
+          548.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "shin_R",
+        "parent": "thigh_R",
+        "local_pivot": [
+          0,
+          225
+        ],
+        "global_pivot": [
+          294.0,
+          773.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "foot_R",
+        "parent": "shin_R",
+        "local_pivot": [
+          0,
+          220
+        ],
+        "global_pivot": [
+          294.0,
+          993.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "thigh_L",
+        "parent": "pelvis",
+        "local_pivot": [
+          4,
+          8
+        ],
+        "global_pivot": [
+          304.0,
+          548.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "shin_L",
+        "parent": "thigh_L",
+        "local_pivot": [
+          0,
+          225
+        ],
+        "global_pivot": [
+          304.0,
+          773.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "foot_L",
+        "parent": "shin_L",
+        "local_pivot": [
+          0,
+          220
+        ],
+        "global_pivot": [
+          304.0,
+          993.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "torso",
+        "parent": "pelvis",
+        "local_pivot": [
+          0,
+          -62
+        ],
+        "global_pivot": [
+          300.0,
+          478.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "upper_arm_R",
+        "parent": "torso",
+        "local_pivot": [
+          2,
+          -226
+        ],
+        "global_pivot": [
+          302.0,
+          252.0
+        ],
+        "angle": -2
+      },
+      {
+        "part": "forearm_R",
+        "parent": "upper_arm_R",
+        "local_pivot": [
+          0,
+          160
+        ],
+        "global_pivot": [
+          307.6,
+          411.9
+        ],
+        "angle": -4
+      },
+      {
+        "part": "hand_R",
+        "parent": "forearm_R",
+        "local_pivot": [
+          0,
+          145
+        ],
+        "global_pivot": [
+          322.7,
+          556.1
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "neck",
+        "parent": "torso",
+        "local_pivot": [
+          -2,
+          -250
+        ],
+        "global_pivot": [
+          298.0,
+          228.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "head",
+        "parent": "neck",
+        "local_pivot": [
+          0,
+          -26
+        ],
+        "global_pivot": [
+          298.0,
+          202.0
+        ],
+        "angle": 0.0
+      },
+      {
+        "part": "upper_arm_L",
+        "parent": "torso",
+        "local_pivot": [
+          2,
+          -226
+        ],
+        "global_pivot": [
+          302.0,
+          252.0
+        ],
+        "angle": 4
+      },
+      {
+        "part": "forearm_L",
+        "parent": "upper_arm_L",
+        "local_pivot": [
+          0,
+          160
+        ],
+        "global_pivot": [
+          290.8,
+          411.6
+        ],
+        "angle": -6
+      },
+      {
+        "part": "hand_L",
+        "parent": "forearm_L",
+        "local_pivot": [
+          0,
+          145
+        ],
+        "global_pivot": [
+          295.9,
+          556.5
+        ],
+        "angle": 0.0
+      }
+    ]
+  },
+  "palette": {
+    "skin": "#E2A985",
+    "skin_shade": "#C68A63",
+    "skin_line": "#8A5234",
+    "skin_far": "#C99173",
+    "skin_far_shade": "#A97354",
+    "navy": "#2B3758",
+    "navy_shade": "#18213A",
+    "navy_line": "#0E1426",
+    "navy_hi": "#3A4A72",
+    "navy_far": "#222C48",
+    "navy_far_shade": "#131A2E",
+    "hair": "#2A1C15",
+    "hair_hi": "#4A3226",
+    "hair_line": "#160E0A",
+    "eye": "#24170F",
+    "lip": "#B8624A",
+    "blush": "#E8826A",
+    "coral": "#FF6B4A",
+    "white": "#FFFFFF"
+  }
+}

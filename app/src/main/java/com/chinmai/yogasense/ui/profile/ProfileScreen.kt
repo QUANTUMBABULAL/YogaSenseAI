@@ -10,25 +10,24 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,126 +36,115 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.chinmai.yogasense.ui.components.CardStyle
+import com.chinmai.yogasense.ui.components.ComingSoonTag
 import com.chinmai.yogasense.ui.components.IconBadge
 import com.chinmai.yogasense.ui.components.ListRow
+import com.chinmai.yogasense.ui.components.SecondaryButton
 import com.chinmai.yogasense.ui.components.SectionHeader
 import com.chinmai.yogasense.ui.components.Tag
-import com.chinmai.yogasense.ui.components.TagTone
+import com.chinmai.yogasense.ui.components.TagStyle
 import com.chinmai.yogasense.ui.components.YsCard
 import com.chinmai.yogasense.ui.components.YsIcons
-import com.chinmai.yogasense.ui.components.YsSecondaryButton
-import com.chinmai.yogasense.ui.theme.Outline
+import com.chinmai.yogasense.ui.theme.Hairline
+import com.chinmai.yogasense.ui.theme.Ink
+import com.chinmai.yogasense.ui.theme.InkMuted
+import com.chinmai.yogasense.ui.theme.Lime
+import com.chinmai.yogasense.ui.theme.Midnight
 import com.chinmai.yogasense.ui.theme.Spacing
 import com.chinmai.yogasense.ui.theme.TextMuted
-import com.chinmai.yogasense.ui.theme.TextPrimary
-import com.chinmai.yogasense.ui.theme.TextSubtle
+import com.chinmai.yogasense.ui.theme.WarmWhite
 
 @Composable
 fun ProfileScreen() {
     val context = LocalContext.current
-    val cameraGranted = rememberCameraPermissionState()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { cameraGranted.value = it }
+    val camera = rememberCameraPermission()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { camera.value = it }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.gutter, vertical = Spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text("Profile", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
-
-        YsCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(YsIcons.Profile, size = 56.dp)
-                Spacer(Modifier.width(Spacing.lg))
-                Column(Modifier.weight(1f)) {
-                    Text("Guest practitioner", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                    Text("No account needed — everything stays on this phone", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        item { Text("Profile", style = MaterialTheme.typography.displaySmall, color = Ink, modifier = Modifier.padding(top = Spacing.md)) }
+        item {
+            YsCard(Modifier.fillMaxWidth(), style = CardStyle.Dark, contentPadding = Spacing.lg - 4.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge(YsIcons.Profile, size = 56.dp, tint = Midnight, container = Lime)
+                    Spacer(Modifier.width(Spacing.md))
+                    Column(Modifier.weight(1f)) {
+                        Text("Guest", style = MaterialTheme.typography.titleLarge, color = WarmWhite)
+                        Text("Local profile · data stays on this phone", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    }
                 }
-            }
-            Spacer(Modifier.height(Spacing.md))
-            Tag("Profile details coming soon")
-        }
-
-        Section("Privacy & permissions") {
-            ListRow(
-                YsIcons.Shield, "On-device processing",
-                subtitle = "Camera frames are analysed on this phone in real time. Video is never recorded or uploaded.",
-            )
-            Divider()
-            ListRow(
-                YsIcons.Camera, "Camera access",
-                subtitle = if (cameraGranted.value) "Allowed" else "Not allowed — needed for live practice",
-                trailing = {
-                    if (cameraGranted.value) Tag("Allowed", tone = TagTone.Accent)
-                    else YsSecondaryButton("Allow", { launcher.launch(Manifest.permission.CAMERA) })
-                },
-            )
-            if (!cameraGranted.value) {
+                Spacer(Modifier.height(Spacing.md - 4.dp))
                 Text(
-                    "If the prompt no longer appears, enable Camera in system settings.",
-                    style = MaterialTheme.typography.bodySmall, color = TextSubtle,
+                    "Accounts and personalised onboarding are not part of this version.",
+                    style = MaterialTheme.typography.bodySmall, color = TextMuted,
                 )
-                Spacer(Modifier.height(Spacing.sm))
-                YsSecondaryButton("Open app settings", { openAppSettings(context) })
             }
         }
 
-        Section("Notifications") {
-            ListRow(
-                YsIcons.Bell, "Practice reminders",
-                subtitle = "Gentle daily reminders — not available yet",
-                enabled = false,
-                trailing = { Switch(checked = false, onCheckedChange = null, enabled = false) },
-            )
+        item { SectionHeader("Available now", Modifier.padding(top = Spacing.sm)) }
+        item {
+            YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.sm) {
+                ListRow(
+                    YsIcons.Camera, "Camera access",
+                    subtitle = if (camera.value) "Allowed — used only for live practice" else "Needed for live practice",
+                    trailing = {
+                        if (camera.value) Tag("Allowed", style = TagStyle.Lime)
+                        else SecondaryButton("Allow", { launcher.launch(Manifest.permission.CAMERA) })
+                    },
+                )
+                if (!camera.value) {
+                    Row(Modifier.padding(start = 56.dp, bottom = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Prompt not showing?", style = MaterialTheme.typography.bodySmall, color = InkMuted, modifier = Modifier.weight(1f))
+                        SecondaryButton("App settings", { openAppSettings(context) })
+                    }
+                }
+                HorizontalDivider(color = Hairline)
+                ListRow(
+                    YsIcons.Shield, "Privacy",
+                    subtitle = "Video is analysed on this phone in real time and is never recorded or uploaded. No account, no backend.",
+                )
+            }
         }
 
-        Section("Wellness data") {
-            ListRow(
-                YsIcons.Leaf, "How your data is used",
-                subtitle = "Check-ins (mood, stress, sleep) and periodic PHQ-9 / GAD-7 questionnaires will be stored only on this device to show trends alongside your practice.",
-            )
-            Divider()
-            Text(
-                "YogaSense AI is a wellness companion, not a medical device. It does not diagnose or treat any condition. If you are struggling, please contact a qualified professional.",
-                style = MaterialTheme.typography.bodySmall, color = TextMuted,
-                modifier = Modifier.padding(vertical = Spacing.sm),
-            )
+        item { SectionHeader("Coming in future updates", Modifier.padding(top = Spacing.sm), subtitle = "Shown for reference — not adjustable yet") }
+        item {
+            YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.sm) {
+                ListRow(YsIcons.Sliders, "Practice preferences", subtitle = "Hold times, rest intervals", enabled = false, trailing = { ComingSoonTag() })
+                HorizontalDivider(color = Hairline)
+                ListRow(YsIcons.Voice, "Voice guidance", subtitle = "Spoken corrections and encouragement", enabled = false, trailing = { ComingSoonTag() })
+                HorizontalDivider(color = Hairline)
+                ListRow(YsIcons.Eye, "Visual guidance", subtitle = "Skeleton overlay and on-screen cues", enabled = false, trailing = { ComingSoonTag() })
+                HorizontalDivider(color = Hairline)
+                ListRow(YsIcons.Bell, "Notifications", subtitle = "Practice and check-in reminders", enabled = false, trailing = { ComingSoonTag() })
+            }
         }
 
-        Section("Your data") {
-            ListRow(YsIcons.Export, "Export data", subtitle = "No data recorded yet", enabled = false)
-            Divider()
-            ListRow(YsIcons.Trash, "Clear all data", subtitle = "No data recorded yet", enabled = false)
+        item { SectionHeader("About", Modifier.padding(top = Spacing.sm)) }
+        item {
+            YsCard(Modifier.fillMaxWidth(), contentPadding = Spacing.sm) {
+                ListRow(YsIcons.Info, "YogaSenseAI ${appVersion(context)}", subtitle = "Move better. Feel better.")
+                HorizontalDivider(color = Hairline)
+                ListRow(
+                    YsIcons.Spark, "On-device AI",
+                    subtitle = "MediaPipe Pose Landmarker Lite · recognises 5 foundational asanas",
+                )
+                HorizontalDivider(color = Hairline)
+                ListRow(
+                    YsIcons.Leaf, "Wellness, not diagnosis",
+                    subtitle = "YogaSenseAI supports wellbeing. It is not a medical device and does not diagnose or treat any condition.",
+                )
+            }
         }
-
-        Section("About") {
-            ListRow(YsIcons.Info, "YogaSense AI", subtitle = "Version ${appVersion(context)}")
-            Divider()
-            ListRow(
-                YsIcons.Spark, "On-device AI",
-                subtitle = "MediaPipe Pose Landmarker Lite · recognises Tadasana, Tree, Warrior II, Chair and Triangle",
-            )
-        }
-        Spacer(Modifier.height(Spacing.sm))
     }
 }
 
+/** Camera permission, re-checked on resume (e.g. returning from system settings). */
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        SectionHeader(title)
-        YsCard(contentPadding = Spacing.md) { content() }
-    }
-}
-
-@Composable
-private fun Divider() = HorizontalDivider(color = Outline)
-
-/** Camera permission state, re-checked whenever the app resumes (e.g. back from Settings). */
-@Composable
-private fun rememberCameraPermissionState(): androidx.compose.runtime.MutableState<Boolean> {
+private fun rememberCameraPermission(): MutableState<Boolean> {
     val context = LocalContext.current
     val state = remember { mutableStateOf(isCameraGranted(context)) }
     val owner = LocalLifecycleOwner.current
@@ -171,10 +159,10 @@ private fun rememberCameraPermissionState(): androidx.compose.runtime.MutableSta
 private fun isCameraGranted(context: Context) =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-private fun openAppSettings(context: Context) {
+private fun openAppSettings(context: Context) =
     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
-}
 
 private fun appVersion(context: Context): String = runCatching {
     context.packageManager.getPackageInfo(context.packageName, 0).versionName
-}.getOrNull() ?: "—"
+}.getOrNull().orEmpty()
+

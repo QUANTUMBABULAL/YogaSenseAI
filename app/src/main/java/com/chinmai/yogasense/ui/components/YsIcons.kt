@@ -125,6 +125,85 @@ object YsIcons {
         moveTo(5f, 19f); lineTo(13f, 11f)
     } }
 
+    val Explore by lazy { icon("explore") {
+        circle(12f, 12f, 9f)
+        moveTo(15.5f, 8.5f); lineTo(13.5f, 13.5f); lineTo(8.5f, 15.5f); lineTo(10.5f, 10.5f); close()
+    } }
+
+    val Search by lazy { icon("search") {
+        circle(10.5f, 10.5f, 6.5f)
+        moveTo(15.3f, 15.3f); lineTo(20f, 20f)
+    } }
+
+    val Clock by lazy { icon("clock") {
+        circle(12f, 12f, 8.5f)
+        moveTo(12f, 7.5f); verticalLineTo(12f); lineTo(15f, 14f)
+    } }
+
+    val Back by lazy { icon("back") { moveTo(15f, 5.5f); lineTo(8.5f, 12f); lineTo(15f, 18.5f) } }
+
+    val Close by lazy { icon("close") { moveTo(6f, 6f); lineTo(18f, 18f); moveTo(18f, 6f); lineTo(6f, 18f) } }
+
+    val Flame by lazy { icon("flame") {
+        moveTo(12f, 21f); curveTo(8f, 21f, 5.5f, 18.3f, 5.5f, 14.8f); curveTo(5.5f, 11f, 8.5f, 9f, 9.5f, 5f)
+        curveTo(11.5f, 6.5f, 12.5f, 8.5f, 12.5f, 10.5f); curveTo(13.5f, 9.8f, 14.2f, 8.8f, 14.5f, 7.5f)
+        curveTo(16.8f, 9.5f, 18.5f, 12f, 18.5f, 14.8f); curveTo(18.5f, 18.3f, 16f, 21f, 12f, 21f); close()
+    } }
+
+    val Voice by lazy { icon("voice") {
+        moveTo(4f, 9.5f); horizontalLineTo(7.5f); lineTo(12f, 5.5f); verticalLineTo(18.5f); lineTo(7.5f, 14.5f); horizontalLineTo(4f); close()
+        moveTo(15.5f, 9f); curveTo(16.6f, 10.4f, 16.6f, 13.6f, 15.5f, 15f)
+        moveTo(18.2f, 6.5f); curveTo(20.6f, 9.5f, 20.6f, 14.5f, 18.2f, 17.5f)
+    } }
+
+    val Eye by lazy { icon("eye") {
+        moveTo(2.5f, 12f); curveTo(5f, 7f, 8.5f, 5f, 12f, 5f); curveTo(15.5f, 5f, 19f, 7f, 21.5f, 12f)
+        curveTo(19f, 17f, 15.5f, 19f, 12f, 19f); curveTo(8.5f, 19f, 5f, 17f, 2.5f, 12f); close()
+        circle(12f, 12f, 3f)
+    } }
+
+    val Sliders by lazy { icon("sliders") {
+        moveTo(4f, 7f); horizontalLineTo(20f); moveTo(4f, 12f); horizontalLineTo(20f); moveTo(4f, 17f); horizontalLineTo(20f)
+        circle(9f, 7f, 1.8f); circle(15f, 12f, 1.8f); circle(8f, 17f, 1.8f)
+    } }
+
+    val Lock by lazy { icon("lock") {
+        moveTo(6f, 11f); horizontalLineTo(18f); verticalLineTo(20f); horizontalLineTo(6f); close()
+        moveTo(8.5f, 11f); verticalLineTo(8f); curveTo(8.5f, 6f, 10f, 4.5f, 12f, 4.5f); curveTo(14f, 4.5f, 15.5f, 6f, 15.5f, 8f); verticalLineTo(11f)
+    } }
+
+    val Report by lazy { icon("report") {
+        moveTo(6f, 3.5f); horizontalLineTo(14.5f); lineTo(18f, 7f); verticalLineTo(20.5f); horizontalLineTo(6f); close()
+        moveTo(9f, 12f); horizontalLineTo(15f); moveTo(9f, 15.5f); horizontalLineTo(13f)
+    } }
+
+    val Pause by lazy { icon("pause") { moveTo(9f, 6f); verticalLineTo(18f); moveTo(15f, 6f); verticalLineTo(18f) } }
+
+    val Replay by lazy { icon("replay") {
+        moveTo(5.5f, 12f); curveTo(5.5f, 8.4f, 8.4f, 5.5f, 12f, 5.5f); curveTo(15.6f, 5.5f, 18.5f, 8.4f, 18.5f, 12f)
+        curveTo(18.5f, 15.6f, 15.6f, 18.5f, 12f, 18.5f); curveTo(9.8f, 18.5f, 7.9f, 17.4f, 6.7f, 15.8f)
+        moveTo(5.5f, 7f); verticalLineTo(12f); horizontalLineTo(10.5f)
+    } }
+
+    val Fullscreen by lazy { icon("fullscreen") {
+        moveTo(4.5f, 9f); verticalLineTo(4.5f); horizontalLineTo(9f)
+        moveTo(15f, 4.5f); horizontalLineTo(19.5f); verticalLineTo(9f)
+        moveTo(19.5f, 15f); verticalLineTo(19.5f); horizontalLineTo(15f)
+        moveTo(9f, 19.5f); horizontalLineTo(4.5f); verticalLineTo(15f)
+    } }
+
+    val Wind by lazy { icon("wind") {
+        moveTo(3.5f, 9f); horizontalLineTo(14f); curveTo(16f, 9f, 17f, 7.8f, 17f, 6.5f); curveTo(17f, 5.2f, 16f, 4f, 14.5f, 4f)
+        moveTo(3.5f, 13f); horizontalLineTo(18f); curveTo(19.6f, 13f, 20.5f, 14.2f, 20.5f, 15.5f); curveTo(20.5f, 16.8f, 19.5f, 18f, 18f, 18f)
+        moveTo(3.5f, 17f); horizontalLineTo(10f)
+    } }
+
+    val Alert by lazy { icon("alert") {
+        moveTo(12f, 4f); lineTo(21f, 19.5f); horizontalLineTo(3f); close()
+        moveTo(12f, 10f); verticalLineTo(14f)
+        moveTo(12f, 16.8f); verticalLineTo(17f)
+    } }
+
     val Spark by lazy { icon("spark") {
         moveTo(12f, 3.5f); lineTo(13.7f, 10.3f); lineTo(20.5f, 12f); lineTo(13.7f, 13.7f)
         lineTo(12f, 20.5f); lineTo(10.3f, 13.7f); lineTo(3.5f, 12f); lineTo(10.3f, 10.3f); close()
