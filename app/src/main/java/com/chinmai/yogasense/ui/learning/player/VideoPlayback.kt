@@ -23,11 +23,18 @@ class VideoPlayback(context: Context, assetPath: String, autoPlay: Boolean, loop
     val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext).build().apply {
         repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         volume = 0f // demonstrations are silent; avoids taking audio focus
-        setMediaItem(MediaItem.fromUri("asset:///$assetPath"))
+        // Built with Uri.Builder so file names with spaces (e.g. "Vrukshasana-Tree pose.mp4") are encoded correctly.
+        setMediaItem(MediaItem.fromUri(android.net.Uri.Builder().scheme("asset").authority("").path("/$assetPath").build()))
         playWhenReady = autoPlay
         addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) = sync()
             override fun onIsPlayingChanged(isPlaying: Boolean) = sync()
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    val aspect = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
+                    _state.update { it.copy(videoAspect = aspect) }
+                }
+            }
             override fun onPlayerError(error: PlaybackException) {
                 _state.update { it.copy(status = PlaybackStatus.Error, isPlaying = false, error = error.errorCodeName) }
             }

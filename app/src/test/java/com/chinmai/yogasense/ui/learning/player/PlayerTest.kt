@@ -37,7 +37,8 @@ class LessonMediaResolverTest {
     /** Mirrors the real project assets: flips to Video automatically when MP4s are added. */
     @Test fun bundledAssetsResolveConsistently() {
         AsanaCatalog.all.forEach { a ->
-            val present = File("src/main/assets/${a.demoAsset}").isFile
+            // A video counts as present under the canonical name or the explicitly mapped provided file.
+            val present = com.chinmai.yogasense.catalog.AsanaVideoAssets.candidates(a).any { File("src/main/assets/$it").isFile }
             val m = LessonMediaResolver.resolve(a) { File("src/main/assets/$it").isFile }
             if (present) assertTrue(m is LessonMedia.Video) else assertTrue("${a.id}: $m", m is LessonMedia.AnimatedIllustration)
         }

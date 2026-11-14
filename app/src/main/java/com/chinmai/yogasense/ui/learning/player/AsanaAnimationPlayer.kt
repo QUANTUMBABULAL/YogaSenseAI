@@ -132,7 +132,11 @@ fun AsanaAnimationPlayer(
     val playable = active !is LessonMedia.StaticIllustration
 
     Column(modifier.clip(RoundedCornerShape(Radius.hero)).background(CardWhite)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(1.1f).background(LimeTint)) {
+        // Videos get a frame matching their own proportions (16:9 landscape, 9:16 portrait clamped so it fits),
+        // shown with Fit scaling on a neutral background: never stretched, never cropped.
+        val isVideo = active is LessonMedia.Video
+        val aspect = if (isVideo) (state.videoAspect ?: 16f / 9f).coerceIn(0.75f, 1.78f) else 1.1f
+        Box(Modifier.fillMaxWidth().aspectRatio(aspect).background(if (isVideo) WarmWhite else LimeTint)) {
             if (fullscreen) {
                 Text("Playing in full screen", style = MaterialTheme.typography.bodyMedium, color = InkMuted, modifier = Modifier.align(Alignment.Center))
             } else {
