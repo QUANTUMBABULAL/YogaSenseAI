@@ -74,6 +74,8 @@ fun HomeScreen(
     personalisation: com.chinmai.yogasense.profile.PersonalisationView? = null,
     onPersonalise: () -> Unit = {},
     onDismissPersonalise: () -> Unit = {},
+    /** Hands-free guided session over the planned poses. */
+    onStartGuided: (List<com.chinmai.yogasense.asana.Asana>) -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -93,7 +95,11 @@ fun HomeScreen(
         if (personalisation?.showPrompt == true) {
             item(key = "personalise") { PersonalisePrompt(onPersonalise, onDismissPersonalise, Modifier.padding(horizontal = Spacing.gutter)) }
         }
-        item(key = "today") { TodayCard(featured, onStartPractice, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
+        item(key = "today") {
+            // Personalised session plan when available (Phase 7B.5 recommender), otherwise all poses.
+            val plan = (suggestion?.sessionPlan?.poses ?: explore).map { it.asana }
+            TodayCard(featured, onStartPractice, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter), onGuided = { onStartGuided(plan) }, guidedCount = plan.size)
+        }
         if (suggestion != null && personalisation != null && (suggestion.sessionPlan != null || personalisation.p.bodyAreas.isNotEmpty() || personalisation.p.goals.isNotEmpty())) {
             item(key = "foryou") { ForYouCard(suggestion, personalisation, onOpenAsana, Modifier.padding(horizontal = Spacing.gutter)) }
         }
@@ -203,7 +209,7 @@ private fun Header(state: HomeUiState, profileName: String?, onOpenProfile: () -
 }
 
 @Composable
-private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier) {
+private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier, onGuided: () -> Unit = {}, guidedCount: Int = 0) {
     YsCard(modifier.fillMaxWidth(), style = CardStyle.Dark, contentPadding = Spacing.lg - 4.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -222,7 +228,11 @@ private fun TodayCard(a: AsanaInfo, onStart: () -> Unit, onOpen: (String) -> Uni
             }
         }
         Spacer(Modifier.height(Spacing.md))
-        PrimaryButton("Start practice", onStart, icon = YsIcons.Play, modifier = Modifier.fillMaxWidth())
+        PrimaryButton("Guided session · $guidedCount poses", onGuided, icon = YsIcons.Play, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(Spacing.sm))
+        TextButton(onClick = onStart, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Free practice", style = MaterialTheme.typography.labelLarge, color = Lime)
+        }
         TextButton(onClick = { onOpen(a.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text("How to do this pose", style = MaterialTheme.typography.labelLarge, color = WarmWhite)
         }

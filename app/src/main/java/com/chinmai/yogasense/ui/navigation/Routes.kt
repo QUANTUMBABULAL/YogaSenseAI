@@ -29,6 +29,12 @@ object Routes {
     const val ONBOARDING = "onboarding?step={step}"
     fun onboarding(step: Int = -1) = "onboarding?step=$step"
 
+    /** Hands-free guided session; plan = comma-separated Asana names in order. */
+    const val GUIDED = "practice/guided?plan={plan}"
+    fun guided(plan: List<com.chinmai.yogasense.asana.Asana>) = "practice/guided?plan=" + plan.joinToString(",") { it.name }
+    fun parsePlan(raw: String?): List<com.chinmai.yogasense.asana.Asana> =
+        raw.orEmpty().split(',').mapNotNull { n -> com.chinmai.yogasense.asana.Asana.entries.firstOrNull { it.name == n && it != com.chinmai.yogasense.asana.Asana.UNKNOWN } }
+
     fun asana(id: String) = "asana/$id"
     fun learn(id: String) = "learn/$id"
     fun practice(asanaId: String? = null) = if (asanaId == null) "practice" else "practice?$ARG_ASANA=$asanaId"

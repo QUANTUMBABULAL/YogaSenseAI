@@ -251,6 +251,7 @@ private fun MainShell(
                     wellness = session.wellness.takeIf { wellnessStatus.isResolved },
                     personalisation = personalisation,
                     onPersonalise = { nav.navigate(Routes.onboarding()) },
+                    onStartGuided = { plan -> nav.navigate(Routes.guided(plan)) },
                     onDismissPersonalise = { uiScope.launch { session.personalisation.dismissPrompt() } },
                     viewModel = viewModel { HomeViewModel(session.practiceHistory) },
                 )
@@ -354,6 +355,34 @@ private fun MainShell(
                     onSkip = { toPractice(it.practiceRoute) },
                     onContinue = { toPractice(it.practiceRoute) },
                 )
+            }
+            composable(
+                Routes.GUIDED,
+                arguments = listOf(navArgument("plan") { type = NavType.StringType; nullable = true; defaultValue = null }),
+                enterTransition = { slideInVertically(tween(280)) { it / 4 } + fadeIn(tween(280)) },
+                popExitTransition = { fadeOut(tween(180)) },
+            ) { e ->
+                SystemBarIcons(darkIcons = false)
+                val plan = Routes.parsePlan(e.arguments?.getString("plan")).ifEmpty { AsanaCatalog.all.map { it.asana } }
+                val prefs by produceState<com.chinmai.yogasense.profile.UserPreferences?>(null, session) { value = session.loadPreferences() }
+                PracticeTheme {
+                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
+                        val p = prefs
+                        if (p != null) {
+                            LiveTrackingScreen(
+                                onClose = { nav.popBackStack() },
+                                profile = PracticeProfileBinding(
+                                    preferences = p,
+                                    diagnostics = session.deviceSettings.diagnostics,
+                                    savePreferences = session::savePreferences,
+                                    saveDiagnostics = { session.deviceSettings.diagnostics = it },
+                                    record = session::recordPractice,
+                                ),
+                                guidedPlan = plan,
+                            )
+                        }
+                    }
+                }
             }
             composable(
                 Routes.PRACTICE,
