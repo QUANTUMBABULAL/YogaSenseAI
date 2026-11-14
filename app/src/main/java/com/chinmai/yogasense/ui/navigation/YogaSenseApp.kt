@@ -120,6 +120,8 @@ fun YogaSenseApp() {
     val wellnessStatus by graph.wellnessStatus.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var addingProfile by rememberSaveable { mutableStateOf(false) }
+    // Profile the user was in when they opened "Switch profile", so the chooser can go back to it.
+    var returnToProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var createError by remember { mutableStateOf<String?>(null) }
     val hasLegacySettings by produceState(false, gate) { value = graph.legacySettingsPending() }
 
@@ -156,12 +158,17 @@ fun YogaSenseApp() {
             if (addingProfile) {
                 androidx.activity.compose.BackHandler { addingProfile = false }
                 ProfileCreateScreen(false, null, false, creating, createError, ::create, onCancel = { addingProfile = false; createError = null })
-            } else ProfileChooserScreen(
+            } else {
+                val previous = g.profiles.firstOrNull { it.userId == returnToProfileId }
+                ProfileChooserScreen(
                 g.profiles, busy = creating,
+                current = previous,
+                onBack = previous?.let { p -> { scope.launch { graph.profiles.select(p.userId) } } },
                 onSelect = { p -> scope.launch { graph.profiles.select(p.userId) } },
                 onAdd = { addingProfile = true },
                 onDelete = { p -> graph.appScope.launch { graph.profiles.delete(p.userId) } },
             )
+            }
         is ProfileGate.Active -> {
             val userId = g.profile.userId
             val session = remember(userId) { graph.sessionFor(userId) }
@@ -181,16 +188,45 @@ fun YogaSenseApp() {
                         val vm = viewModel(key = "onboarding-required") { OnboardingViewModel(session.personalisation, view, OnboardingMode.Required) }
                         OnboardingScreen(vm, g.profile.displayName, onExit = {}, onLeave = { scope.launch { graph.profiles.clear() } })
                     }
-                    else -> MainShell(
-                        profile = g.profile,
-                        profileCount = g.profiles.size,
-                        session = session,
-                        graph = graph,
-                        wellnessStatus = wellnessStatus,
-                        personalisation = view,
-                        onSwitchProfile = { addingProfile = false; scope.launch { graph.profiles.clear() } },
-                        onDeleteProfile = { graph.appScope.launch { graph.profiles.delete(userId) } },
-                    )
+                    else -> {
+                        // "Switch profile" opens the chooser ON TOP of the app without leaving the profile,
+                        // so Back returns to the exact page it was opened from (Profile), not to Home.
+                        var switching by rememberSaveable { mutableStateOf(false) }
+                        Box(Modifier.fillMaxSize()) {
+                            // key: a different profile always gets a fresh shell (navigation + ViewModels),
+                            // so nothing from the previous profile can remain on screen.
+                            androidx.compose.runtime.key(userId) {
+                                MainShell(
+                                    profile = g.profile,
+                                    profileCount = g.profiles.size,
+                                    session = session,
+                                    graph = graph,
+                                    wellnessStatus = wellnessStatus,
+                                    personalisation = view,
+                                    onSwitchProfile = { addingProfile = false; createError = null; switching = true },
+                                    onDeleteProfile = { graph.appScope.launch { graph.profiles.delete(userId) } },
+                                )
+                            }
+                            if (switching) {
+                                if (addingProfile) {
+                                    androidx.activity.compose.BackHandler { addingProfile = false }
+                                    ProfileCreateScreen(false, null, false, creating, createError, ::create, onCancel = { addingProfile = false; createError = null })
+                                } else {
+                                    ProfileChooserScreen(
+                                        g.profiles, busy = creating,
+                                        current = g.profile,
+                                        onBack = { switching = false },
+                                        onSelect = { p ->
+                                            switching = false
+                                            if (p.userId != userId) scope.launch { graph.profiles.select(p.userId) }
+                                        },
+                                        onAdd = { addingProfile = true },
+                                        onDelete = { p -> graph.appScope.launch { graph.profiles.delete(p.userId) } },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

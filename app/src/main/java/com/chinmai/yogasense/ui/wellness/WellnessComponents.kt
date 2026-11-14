@@ -1,5 +1,9 @@
 package com.chinmai.yogasense.ui.wellness
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -65,35 +69,48 @@ import com.chinmai.yogasense.wellness.Scales
 import com.chinmai.yogasense.wellness.TrendSeries
 import com.chinmai.yogasense.wellness.WellnessDates
 
-/** 1–5 rating as five labelled, selectable options. Tapping the selected option clears it (optional field). */
+/**
+ * 1–5 rating as five number buttons. Words never sit inside the buttons (they don't fit on small
+ * phones): the scale's end labels are shown underneath and the chosen answer beside the title.
+ * Tapping the selected option clears it (optional field).
+ */
 @Composable
 fun RatingSelector(scale: RatingScale, value: Int?, onChange: (Int?) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(scale.title, style = MaterialTheme.typography.titleMedium, color = Ink, modifier = Modifier.weight(1f))
-            Text(value?.let { scale.label(it) } ?: "Not answered", style = MaterialTheme.typography.labelMedium, color = if (value == null) InkSubtle else Ink)
+            if (value == null) {
+                Text("Not answered", style = MaterialTheme.typography.labelMedium, color = InkSubtle)
+            } else {
+                Text(
+                    scale.label(value), style = MaterialTheme.typography.labelLarge, color = Midnight, maxLines = 1,
+                    modifier = Modifier.clip(CircleShape).background(Lime).padding(horizontal = 12.dp, vertical = 5.dp),
+                )
+            }
         }
-        Spacer(Modifier.height(Spacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Spacer(Modifier.height(Spacing.sm + 2.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             scale.range.forEach { v ->
                 val selected = value == v
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 56.dp)
+                        .height(52.dp)
                         .selectable(selected = selected, role = Role.RadioButton, onClick = { onChange(if (selected) null else v) })
                         .semantics { contentDescription = "${scale.title}: ${scale.label(v)}, $v of ${scale.labels.size}" },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(18.dp),
                     color = if (selected) Midnight else CardWhite,
-                    contentColor = if (selected) WarmWhite else Ink,
+                    contentColor = if (selected) Lime else Ink,
                     border = if (selected) null else BorderStroke(1.dp, Hairline),
                 ) {
-                    Column(Modifier.padding(vertical = 8.dp, horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("$v", style = MaterialTheme.typography.titleMedium)
-                        Text(scale.label(v), style = MaterialTheme.typography.labelSmall, maxLines = 2, color = if (selected) Lime else InkMuted)
-                    }
+                    Box(contentAlignment = Alignment.Center) { Text("$v", style = MaterialTheme.typography.titleLarge) }
                 }
             }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row {
+            Text(scale.label(scale.range.first), style = MaterialTheme.typography.bodySmall, color = InkMuted, modifier = Modifier.weight(1f))
+            Text(scale.label(scale.range.last), style = MaterialTheme.typography.bodySmall, color = InkMuted)
         }
     }
 }

@@ -203,13 +203,24 @@ fun ProfileChooserScreen(
     onSelect: (UserProfile) -> Unit,
     onAdd: () -> Unit,
     onDelete: (UserProfile) -> Unit,
+    /** Profile the user came from (Profile → Switch profile); null on a fresh start. */
+    current: UserProfile? = null,
+    onBack: (() -> Unit)? = null,
 ) {
+    if (onBack != null) androidx.activity.compose.BackHandler(enabled = !busy, onBack = onBack)
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
     LazyColumn(
         Modifier.fillMaxSize().background(WarmWhite).statusBarsPadding().navigationBarsPadding(),
         contentPadding = PaddingValues(horizontal = Spacing.gutter, vertical = Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md - 4.dp),
     ) {
+        if (onBack != null) item {
+            IconButton(
+                onClick = onBack, enabled = !busy,
+                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(containerColor = com.chinmai.yogasense.ui.theme.CardWhite, contentColor = Ink),
+                modifier = Modifier.size(48.dp),
+            ) { Icon(YsIcons.Back, if (current != null) "Back to ${current.displayName}" else "Back") }
+        }
         item {
             Text("Who's practising?", style = MaterialTheme.typography.displaySmall, color = Ink)
             Text("Choose your profile. Each one keeps its own history and settings.", style = MaterialTheme.typography.bodyLarge, color = InkMuted)
@@ -222,7 +233,7 @@ fun ProfileChooserScreen(
                     Spacer(Modifier.width(Spacing.md - 4.dp))
                     Column(Modifier.weight(1f)) {
                         Text(p.displayName, style = MaterialTheme.typography.titleMedium, color = Ink)
-                        Text(p.experienceLevel.label, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                        Text(p.experienceLevel.label + if (p.userId == current?.userId) " · current" else "", style = MaterialTheme.typography.bodySmall, color = InkMuted)
                     }
                     IconButton(onClick = { pendingDelete = p.userId }, enabled = !busy, modifier = Modifier.semantics { contentDescription = "Delete ${p.displayName}" }) {
                         Icon(YsIcons.Trash, null, tint = InkMuted)

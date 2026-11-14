@@ -157,6 +157,7 @@ fun OnboardingScreen(vm: OnboardingViewModel, profileName: String, onExit: () ->
                     canSkip = c.canSkip(step),
                     canContinue = s.canContinue,
                     continueLabel = if (c.isEdit) "Save" else "Continue",
+                    isEdit = c.isEdit,
                     error = s.error,
                     onBack = { if (!c.back()) onLeave() },
                     onSkip = vm::skip,
@@ -198,6 +199,8 @@ private fun QuestionScaffold(
     canContinue: Boolean,
     continueLabel: String,
     error: String?,
+    /** Editing one saved answer from Profile: no survey progress, just a close button. */
+    isEdit: Boolean = false,
     onBack: () -> Unit,
     onSkip: () -> Unit,
     onContinue: () -> Unit,
@@ -209,12 +212,23 @@ private fun QuestionScaffold(
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
         // Top: back · progress · skip
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp)) { if (canBack) IconButton(onClick = onBack) { Icon(YsIcons.Back, "Back", tint = Ink) } }
-            Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                ProgressTrack(progress)
-                Spacer(Modifier.height(6.dp))
-                Text("$index of ${OnboardingStep.questions.size}", style = MaterialTheme.typography.labelMedium, color = InkMuted,
-                    modifier = Modifier.semantics { contentDescription = "Question $index of ${OnboardingStep.questions.size}" })
+            Box(Modifier.size(48.dp)) {
+                if (canBack) IconButton(onClick = onBack) {
+                    if (isEdit) Icon(YsIcons.Close, "Close without saving", tint = Ink) else Icon(YsIcons.Back, "Back", tint = Ink)
+                }
+            }
+            if (isEdit) {
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text("Edit your answer", style = MaterialTheme.typography.titleMedium, color = Ink)
+                    Text("Only this answer changes. Save to return to your profile.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                }
+            } else {
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    ProgressTrack(progress)
+                    Spacer(Modifier.height(6.dp))
+                    Text("$index of ${OnboardingStep.questions.size}", style = MaterialTheme.typography.labelMedium, color = InkMuted,
+                        modifier = Modifier.semantics { contentDescription = "Question $index of ${OnboardingStep.questions.size}" })
+                }
             }
             Box(Modifier.widthIn(min = 64.dp), contentAlignment = Alignment.CenterEnd) {
                 if (canSkip) TextButton(onClick = onSkip) { Text("Skip", style = MaterialTheme.typography.labelLarge, color = InkMuted) }
