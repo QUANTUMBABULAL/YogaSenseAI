@@ -119,6 +119,14 @@ Time budget assumes ~40 working hours across two devs. Dev A = vision pipeline, 
   migration 2→3; experience and minutes reuse existing columns), recommender driving Home "For you" and an
   editable Profile section. 277/277 unit tests; **after-measurements and on-device UI check pending** (phone
   disconnected). See `PHASE7B5_PERFORMANCE_ONBOARDING_REPORT.md`.
+- **Phase 7B.5 follow-up — ruler height/weight selectors (2026-11-14):** keyboard inputs replaced by
+  horizontal measurement rulers (CM/FT·IN, KG/LBS; canonical cm/kg, no drift). Gesture tests and onboarding
+  walk-through passed on the OPPO (automated).
+- **Phase 8 — Occlusion-aware assessment (2026-11-14):** four-state landmark reliability + temporal
+  persistence, camera-orientation detection, per-asana visibility profiles with view-specific metrics and
+  one-side fallbacks, coverage-gated adaptive scoring with separate confidence, camera-adjustment coaching,
+  side-view stability/framing. 306/306 unit tests (synthetic); **not yet validated with a person on the
+  OPPO** (matrix in `PHASE8_OCCLUSION_ASSESSMENT_REPORT.md`). Recognition unchanged.
 - **Next:** run the instrumented tests and a manual pass on the OPPO; then Phase 7C/7D (PIN/biometrics,
   Keystore encryption of reflections and other sensitive columns, removal of the legacy wellness.db copy).
 - **Next (former Phase 6 note, superseded):** add licensed/self-recorded MP4s (no code change needed), practice preparation that uses

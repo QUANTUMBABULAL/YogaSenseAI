@@ -241,14 +241,15 @@ fun AssessmentStrip(live: LiveAssessment?, modifier: Modifier = Modifier) {
     val a = live?.alignment
     val st = live?.stability
     val hold = live?.hold
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Stat(
-            "Alignment",
+            "Posture",
             a?.score?.toString() ?: "—",
             when {
                 a == null -> "waiting"
-                a.score == null -> "joints unclear"
-                else -> "${(a.visibility * 100).toInt()}% visible"
+                a.score == null -> if (a.cameraHint != null) "adjust camera" else "not enough visible"
+                else -> "${a.evaluated.size}/${a.metrics.size} measured"
             },
             when { a?.score == null -> TextMuted; a.score >= 80 -> Lime; a.score >= 60 -> WarmWhite; else -> Warn },
             Modifier.weight(1f),
@@ -263,6 +264,23 @@ fun AssessmentStrip(live: LiveAssessment?, modifier: Modifier = Modifier) {
             if (hold?.counting == true) Lime else TextMuted, Modifier.weight(1f),
         )
     }
+    // Phase 8: confidence and coverage are reported separately from the posture score.
+    a?.let { AssessmentCoverageLine(it) }
+    }
+}
+
+/** "Confidence High · 5/6 measured · Not measured: Front knee (hidden)". Unavailable is never shown as a value. */
+@Composable
+private fun AssessmentCoverageLine(a: com.chinmai.yogasense.coaching.assessment.AlignmentResult) {
+    val missing = a.unavailable.joinToString { "${it.label} (${it.reason?.label ?: "unavailable"})" }
+    val text = buildString {
+        append("Confidence ${a.confidence.level.label}")
+        append(" · ${a.evaluated.size}/${a.metrics.size} measured")
+        if (a.evaluated.any { it.oneSideOnly }) append(" · some on one side only")
+        if (missing.isNotEmpty()) append(" · Not measured: $missing")
+    }
+    Text(text, color = TextMuted, fontSize = 11.sp, maxLines = 2,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(HudSurface).padding(horizontal = 10.dp, vertical = 4.dp))
 }
 
 @Composable

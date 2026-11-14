@@ -48,7 +48,7 @@ object Geometry {
  * - Any feature whose landmarks are below [threshold] visibility/presence returns null.
  * - LEFT/RIGHT always mean the subject's anatomical side (MediaPipe convention).
  */
-class BodyFeatures(frame: PoseFrame, private val threshold: Float = Landmark.DEFAULT_CONFIDENCE) {
+class BodyFeatures(val frame: PoseFrame, private val threshold: Float = Landmark.DEFAULT_CONFIDENCE) {
     private val w = if (frame.imageWidth > 0) frame.imageWidth.toFloat() else 1f
     private val h = if (frame.imageHeight > 0) frame.imageHeight.toFloat() else 1f
     private val pts: List<Pt?> = if (frame.hasPose) {
@@ -143,6 +143,22 @@ class BodyFeatures(frame: PoseFrame, private val threshold: Float = Landmark.DEF
         val hp = hipPt(s) ?: return null; val kn = kneePt(s) ?: return null
         if (Geometry.dist(hp, kn) < 1f) return null
         return Math.toDegrees(atan2(abs(kn.x - hp.x).toDouble(), (kn.y - hp.y).toDouble())).toFloat()
+    }
+
+    // ---- Phase 8: single-side features for profile views (far side often occluded) -------------
+
+    /** Shoulder→hip length of ONE side (pixels); the normalisation scale when the midline is unavailable. */
+    fun torsoLengthSide(s: BodySide): Float? = both(shoulder(s), hipPt(s))?.let { Geometry.dist(it.first, it.second) }?.takeIf { it > 1f }
+
+    /** Hip→shoulder line of ONE side from vertical; equals the trunk tilt in a side view. */
+    fun torsoTiltSide(s: BodySide): Float? = both(hipPt(s), shoulder(s))?.takeIf { Geometry.dist(it.first, it.second) > 1f }
+        ?.let { Geometry.tiltFromVerticalDeg(it.first, it.second) }
+
+    /** [footRaise] normalised by one side's trunk length (used when the midline torso is not reliable). */
+    fun footRaiseSideNorm(raised: BodySide, normSide: BodySide): Float? {
+        val t = torsoLengthSide(normSide) ?: return null
+        val (a, b) = both(ankle(raised), ankle(raised.opposite)) ?: return null
+        return (b.y - a.y) / t
     }
 
     private fun angle(a: Pt?, b: Pt?, c: Pt?): Float? =

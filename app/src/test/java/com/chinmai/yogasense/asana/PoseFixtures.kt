@@ -22,6 +22,10 @@ object PoseFixtures {
         val vis = FloatArray(L.COUNT) { 0.95f }
 
         fun occlude(vararg idx: Int, visibility: Float = 0.1f) = apply { idx.forEach { vis[it] = visibility } }
+        /** Phase 8: per-landmark presence; NaN = same as visibility (the original fixture behaviour). */
+        val presence = FloatArray(L.COUNT) { Float.NaN }
+        /** Hidden but inside the image, as MediaPipe reports an occluded joint: low visibility, high presence. */
+        fun hide(vararg idx: Int) = apply { idx.forEach { vis[it] = 0.1f; presence[it] = 0.95f } }
         fun allVisibility(v: Float) = apply { vis.fill(v) }
 
         /** Uniform scale about image centre + shift: simulates camera distance/position. */
@@ -52,7 +56,7 @@ object PoseFixtures {
             }
             foot(L.LEFT_ANKLE, L.LEFT_HEEL, L.LEFT_FOOT_INDEX)
             foot(L.RIGHT_ANKLE, L.RIGHT_HEEL, L.RIGHT_FOOT_INDEX)
-            val lms = pts.mapIndexed { i, p -> Landmark(p.x / W, p.y / H, 0f, vis[i], vis[i]) }
+            val lms = pts.mapIndexed { i, p -> Landmark(p.x / W, p.y / H, 0f, vis[i], if (presence[i].isNaN()) vis[i] else presence[i]) }
             return PoseFrame(lms, ts, W, H)
         }
     }

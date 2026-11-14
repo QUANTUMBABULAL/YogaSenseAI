@@ -24,7 +24,9 @@ object PracticeGuidance {
         camera is CameraStatus.Error -> Guidance(camera.message, Tone.Warn)
         camera is CameraStatus.Starting -> Guidance("Starting camera…", Tone.Info)
         !hasPose -> Guidance(FramingStatus.NO_BODY.message, Tone.Warn)
-        framing != FramingStatus.FULL_BODY -> Guidance(framing.message, Tone.Warn)
+        // A recognised pose in profile with only the far side hidden is not asked to "show your feet".
+        framing != FramingStatus.FULL_BODY && !(recognition.isStable && live?.framingAccepted == true) -> Guidance(framing.message, Tone.Warn)
+        recognition.isStable && live?.alignment?.score == null && live?.alignment?.cameraHint != null -> Guidance(live.alignment.cameraHint, Tone.Warn)
         recognition.isStable && live?.correction != null -> Guidance(live.correction, Tone.Warn)
         recognition.isStable && live != null && live.hold.counting ->
             Guidance("Holding ${name(recognition.asana)} · ${live.hold.currentHoldMs / 1000} s steady", Tone.Good)
