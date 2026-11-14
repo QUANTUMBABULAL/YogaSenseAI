@@ -14,6 +14,8 @@ data class PlaybackState(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val error: String? = null,
+    /** Width ÷ height of the video as decoded (null until known, and for illustrations). */
+    val videoAspect: Float? = null,
 ) {
     val progress: Float get() = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
 }

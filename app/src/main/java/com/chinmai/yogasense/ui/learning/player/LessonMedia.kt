@@ -23,8 +23,13 @@ object LessonMediaResolver {
      * Prefer a real bundled video; otherwise fall back to the animated illustration, then to the
      * static figure. [assetExists] is injected so this is testable without Android.
      */
-    fun resolve(info: AsanaInfo, assetExists: (String) -> Boolean): LessonMedia = when {
-        assetExists(info.demoAsset) -> LessonMedia.Video(info.demoAsset)
+    fun resolve(info: AsanaInfo, assetExists: (String) -> Boolean): LessonMedia {
+        // A real video always wins over the illustration (canonical name first, then the provided file).
+        com.chinmai.yogasense.catalog.AsanaVideoAssets.candidates(info).firstOrNull(assetExists)?.let { return LessonMedia.Video(it) }
+        return illustration(info)
+    }
+
+    private fun illustration(info: AsanaInfo): LessonMedia = when {
         info.demoSequence.size >= 2 -> LessonMedia.AnimatedIllustration(info.demoSequence)
         else -> LessonMedia.StaticIllustration(info.figure)
     }
