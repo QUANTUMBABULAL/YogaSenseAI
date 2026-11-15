@@ -35,6 +35,25 @@ class AsanaVideoAssetsTest {
         }
     }
 
+    /** Android assets are case-sensitive but Windows isn't: compare against the exact directory listing. */
+    @Test fun mappedNamesMatchTheBundledFilesExactlyIncludingCaseAndSpaces() {
+        val exact = dir.listFiles().orEmpty().map { it.name }.toSet()
+        AsanaVideoAssets.FILES.values.forEach { assertTrue("'$it' not found with exact case", it in exact) }
+        assertTrue("Vrukshasana-Tree pose.mp4" in exact)        // spaces and hyphens are part of the asset name
+        // Resolution with a case-exact lookup (as on Android) still finds every mapped video.
+        AsanaVideoAssets.FILES.forEach { (asana, name) ->
+            val m = LessonMediaResolver.resolve(AsanaCatalog.of(asana)!!) { p -> p.substringAfter('/') in exact }
+            assertEquals(LessonMedia.Video("asana/$name"), m)
+        }
+        // A wrong-case name must not match on Android.
+        assertTrue("trikonasana.mp4" !in exact)
+    }
+
+    @Test fun alternateSpellingIsAcceptedIfTheFileIsRenamed() {
+        val tree = AsanaCatalog.of(Asana.TREE)!!
+        assertEquals(LessonMedia.Video("asana/Vruksasana-Tree pose.mp4"), LessonMediaResolver.resolve(tree) { it == "asana/Vruksasana-Tree pose.mp4" })
+    }
+
     @Test fun chairHasNoVideoAndKeepsTheLabelledFallback() {
         val m = LessonMediaResolver.resolve(AsanaCatalog.of(Asana.CHAIR)!!, ::exists)
         assertTrue("$m", m is LessonMedia.AnimatedIllustration)

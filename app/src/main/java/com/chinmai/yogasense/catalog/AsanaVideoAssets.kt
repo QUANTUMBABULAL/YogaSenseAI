@@ -29,7 +29,16 @@ object AsanaVideoAssets {
         "chakrasana.mp4" to "Wheel Pose (Chakrasana) — not a supported asana",
     )
 
-    /** Asset paths to try, in order: the catalogue's canonical name, then the provided file. */
+    /**
+     * Other accepted spellings of a provided file (Android asset names are case- and
+     * spelling-sensitive). "Vruksasana-Tree pose.mp4" is how the file was referred to in a request,
+     * while the bundled file is "Vrukshasana-Tree pose.mp4"; either name works.
+     */
+    val ALTERNATES: Map<Asana, List<String>> = mapOf(
+        Asana.TREE to listOf("Vruksasana-Tree pose.mp4"),
+    )
+
+    /** Asset paths to try, in order: the catalogue's canonical name, the provided file, then accepted alternates. */
     fun candidates(info: AsanaInfo): List<String> =
-        listOfNotNull(info.demoAsset, FILES[info.asana]?.let { "$DIR/$it" }).distinct()
+        (listOfNotNull(info.demoAsset, FILES[info.asana]?.let { "$DIR/$it" }) + ALTERNATES[info.asana].orEmpty().map { "$DIR/$it" }).distinct()
 }
