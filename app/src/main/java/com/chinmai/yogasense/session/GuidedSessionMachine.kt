@@ -52,6 +52,20 @@ data class GuidedState(
     val next: Asana? get() = plan.getOrNull(index + 1)
     val paused: Boolean get() = pausedBy != null
     val isLast: Boolean get() = index >= plan.lastIndex
+
+    /**
+     * Whether the live camera (and MediaPipe) should run in this state. Only the stages where the user
+     * is in front of the camera need it: preparation (time for the camera to start and the user to
+     * frame themselves), detection, the hold and the "couldn't detect" retry prompt. Intro, the
+     * demonstration video, recovery and the summary run without it, so no camera surface is ever
+     * shown underneath (or competing with) the demonstration video. Pausing keeps the current
+     * stage's choice, so a camera-caused pause can still recover by itself.
+     */
+    val needsCamera: Boolean get() = stage in CAMERA_STAGES
+
+    private companion object {
+        val CAMERA_STAGES = setOf(GuidedStage.PREPARATION_COUNTDOWN, GuidedStage.WAITING_FOR_POSE, GuidedStage.HOLDING, GuidedStage.DETECTION_TIMEOUT)
+    }
 }
 
 sealed interface GuidedEvent {
@@ -137,6 +151,12 @@ class GuidedSessionMachine(plan: List<Asana>, val config: GuidedConfig = GuidedC
             GuidedEvent.Exit -> complete(endedEarly = true)
         }
     }
+
+    /**
+     * Like [onEvent], but only if the state is still the one the UI showed when the action was tapped
+     * ([epoch]). A double tap on "Skip pose" would otherwise skip the NEXT pose as well.
+     */
+    fun onEventAt(epoch: Int, e: GuidedEvent): List<GuidedEffect> = if (epoch == state.epoch) onEvent(e) else emptyList()
 
     private fun tick(now: Long): List<GuidedEffect> {
         val last = lastTickMs

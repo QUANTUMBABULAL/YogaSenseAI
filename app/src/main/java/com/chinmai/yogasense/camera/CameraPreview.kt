@@ -45,6 +45,8 @@ fun CameraPreview(
     onEngineReady: (PoseLandmarkerEngine?) -> Unit,
     onStatus: (CameraStatus) -> Unit,
     modifier: Modifier = Modifier,
+    /** Which lens was actually bound for [lensFacing] (it differs when the device lacks that camera). */
+    onLensResolved: (LensResolution) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -90,11 +92,16 @@ fun CameraPreview(
                 onEngineReady(created)
                 provider = cameraProvider
                 try {
-                    val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-                    if (!cameraProvider.hasCamera(selector)) {
-                        onStatus(CameraStatus.Error("Requested camera not available on this device"))
+                    fun has(lens: Int) = runCatching { cameraProvider.hasCamera(CameraSelector.Builder().requireLensFacing(lens).build()) }.getOrDefault(false)
+                    val available = CameraChoice.entries.map { it.lensFacing }.filter(::has).toSet()
+                    val resolution = CameraLensPolicy.resolve(lensFacing, available)
+                    if (resolution == null) {
+                        onStatus(CameraStatus.Error("No camera available on this device"))
                         return@execute
                     }
+                    // Falls back to the camera the device has; the caller is told which one is bound.
+                    onLensResolved(resolution)
+                    val selector = CameraSelector.Builder().requireLensFacing(resolution.bound).build()
                     val aspect = AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
                     val preview = Preview.Builder()
                         .setResolutionSelector(ResolutionSelector.Builder().setAspectRatioStrategy(aspect).build())

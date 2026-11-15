@@ -90,7 +90,8 @@ fun TopHud(
     voiceStatus: VoiceStatus,
     speaking: Boolean,
     onClose: (() -> Unit)?,
-    onFlip: () -> Unit,
+    /** Null hides the switch (guided sessions keep the camera chosen before the start). */
+    onFlip: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -113,8 +114,10 @@ fun TopHud(
         }
         Spacer(Modifier.width(8.dp))
         CoachBadge(voiceMode, voiceStatus, speaking)
-        Spacer(Modifier.width(8.dp))
-        HudIconButton(YsIcons.Camera, "Switch camera", onFlip)
+        if (onFlip != null) {
+            Spacer(Modifier.width(8.dp))
+            HudIconButton(YsIcons.Camera, "Switch camera", onFlip)
+        }
     }
 }
 

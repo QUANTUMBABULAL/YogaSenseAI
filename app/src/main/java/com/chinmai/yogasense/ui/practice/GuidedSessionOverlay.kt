@@ -80,6 +80,8 @@ class GuidedActions(
     val onPause: () -> Unit,
     val onExit: () -> Unit,
     val onDone: () -> Unit,
+    /** Paused because the camera failed: bind it again. */
+    val onRetryCamera: () -> Unit = {},
 )
 
 private fun name(a: Asana?) = a?.let { AsanaCatalog.of(it)?.name ?: it.displayName }.orEmpty()
@@ -115,7 +117,8 @@ fun GuidedSessionOverlay(
 @Composable
 private fun Panel(controls: GuidedActions?, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(Midnight).blockTouches().statusBarsPadding().navigationBarsPadding().padding(20.dp)) {
-        Box(Modifier.fillMaxSize().padding(top = if (controls != null) 40.dp else 0.dp)) { content() }
+        // Content starts below the 44 dp Pause/End row so the two never overlap.
+        Box(Modifier.fillMaxSize().padding(top = if (controls != null) 56.dp else 0.dp)) { content() }
         if (controls != null) SessionControls(controls, Modifier.align(Alignment.TopEnd))
     }
 }
@@ -385,6 +388,7 @@ private fun Paused(s: GuidedState, a: GuidedActions) {
         )
         Spacer(Modifier.height(24.dp))
         if (s.pausedBy != PauseReason.CAMERA) PrimaryAction("Resume", a.onResume)
+        else PrimaryAction("Retry camera", a.onRetryCamera) // a failed bind never recovers by itself
         Spacer(Modifier.height(10.dp))
         SecondaryAction("End session", a.onExit)
     }
